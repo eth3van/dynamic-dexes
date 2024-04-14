@@ -10,6 +10,8 @@ import { BinarySearch } from "./libraries/BinarySearch.sol";
 import { IFactory } from "./interfaces/IFactory.sol";
 import { Ownable2Step } from "./external/Ownable2Step.sol";
 
+import { CallbackComponentLibrary } from "./libraries/CallbackComponentLibrary.sol";
+
 /// @title Factory
 /// @notice This contract serves as a proxy for dynamic function execution.
 /// @dev It maps function selectors to their corresponding component contracts.
@@ -60,11 +62,16 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
 
     /// @notice Fallback function to execute component associated with incoming function selectors.
     /// @dev If a component for the incoming selector is found, it delegates the call to that component.
+    /// @dev If callback address in storage is not address(0) - it delegates the call to that address.
     fallback() external payable {
-        address component = _getAddress(msg.sig);
+        address component = CallbackComponentLibrary.getCallbackAddress();
 
         if (component == address(0)) {
-            revert Factory_FunctionDoesNotExist(msg.sig);
+            component = _getAddress(msg.sig);
+
+            if (component == address(0)) {
+                revert Factory_FunctionDoesNotExist(msg.sig);
+            }
         }
 
         assembly ("memory-safe") {
@@ -77,7 +84,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
         }
     }
 
-    /// @notice Receive function to receive Native currency.
+    /// @notice Function to receive Native currency.
     receive() external payable { }
 
     // =======================
@@ -103,22 +110,22 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
                 memoryOffset := add(memoryOffset, 32)
             } {
                 component := mload(memoryOffset)
-                let offs := add(cDataStart, calldataload(cDataOffset))
+                let offset := add(cDataStart, calldataload(cDataOffset))
                 if iszero(component) {
                     // revert Factory_FunctionDoesNotExist(selector);
                     mstore(0, 0x9365f537)
                     mstore(
                         32,
                         and(
-                            calldataload(add(offs, 32)),
+                            calldataload(add(offset, 32)),
                             0xffffffff00000000000000000000000000000000000000000000000000000000
                         )
                     )
                     revert(28, 36)
                 }
 
-                let cSize := calldataload(offs)
-                calldatacopy(ptr, add(offs, 32), cSize)
+                let cSize := calldataload(offset)
+                calldatacopy(ptr, add(offset, 32), cSize)
 
                 if iszero(delegatecall(gas(), component, ptr, cSize, 0, 0)) {
                     returndatacopy(0, 0, returndatasize())
