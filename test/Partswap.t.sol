@@ -36,7 +36,7 @@ contract PartswapTest is Test {
         feeContract.changeReferralFee(IFeeContract.ReferralFee({ protocolPart: 200, referralPart: 50 }));
 
         address routerImplementation = address(new MultiswapRouterComponent(WBNB));
-        router = MultiswapRouterComponent(address(new Proxy()));
+        router = MultiswapRouterComponent(address(new Proxy(owner)));
 
         feeContract.changeRouter(address(router));
 

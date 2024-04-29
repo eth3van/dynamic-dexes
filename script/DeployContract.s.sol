@@ -18,9 +18,9 @@ contract Deploy is Script {
     address transferComponent = address(0);
     address stargateComponent = address(0);
 
-    address proxy = 0x387f7c5A79bCb3B5C281c505b39fd48Cec0B814C;
+    address proxy = 0x9d5b514435EE72bA227453E907835724Fff6715e;
 
-    bytes32 salt = keccak256("dev_salt-1");
+    bytes32 salt = keccak256("dev_salt-2");
 
     // testnet
     address lzEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
@@ -56,8 +56,7 @@ contract Deploy is Script {
         }
 
         if (stargateComponent == address(0)) {
-            // TODO
-            stargateComponent = address(new StargateComponent(lzEndpoint, lzEndpoint));
+            stargateComponent = address(new StargateComponent(lzEndpoint));
         }
     }
 
@@ -88,11 +87,10 @@ contract Deploy is Script {
 
         // Stargate Component
         selectors[i++] = StargateComponent.lzEndpoint.selector;
-        selectors[i++] = StargateComponent.stargateEndpoint.selector;
         selectors[i++] = StargateComponent.prepareTransferAndCall.selector;
         selectors[i++] = StargateComponent.sendStargate.selector;
         selectors[i++] = StargateComponent.lzCompose.selector;
-        for (uint256 k; k < 5; ++k) {
+        for (uint256 k; k < 4; ++k) {
             componentAddresses[j++] = stargateComponent;
         }
 

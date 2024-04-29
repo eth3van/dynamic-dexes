@@ -38,7 +38,7 @@ contract OwnableAndProxyTest is Test {
         feeContract = new FeeContract(owner);
 
         address factoryImplementation = address(new Factory(bytes("")));
-        factory = Factory(payable(address(new Proxy())));
+        factory = Factory(payable(address(new Proxy(owner))));
 
         InitialImplementation(address(factory)).upgradeTo(
             factoryImplementation, abi.encodeCall(Factory.initialize, (owner, new bytes[](0)))
@@ -65,7 +65,7 @@ contract OwnableAndProxyTest is Test {
     function test_factory_initialize_shouldInitializeContract(address newOwner) external {
         assumeNotZeroAddress(newOwner);
 
-        Factory _factory = Factory(payable(address(new Proxy())));
+        Factory _factory = Factory(payable(address(new Proxy(address(this)))));
         InitialImplementation(address(_factory)).upgradeTo(
             address(new Factory(bytes(""))), abi.encodeCall(Factory.initialize, (newOwner, new bytes[](0)))
         );
