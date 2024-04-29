@@ -25,6 +25,10 @@ contract Deploy is Script {
     // testnet
     address lzEndpoint = 0x6EDCE65403992e310A62460808c4b910D972f10f;
 
+    address arbStargateComposer = 0xb2d85b2484c910A6953D28De5D3B8d204f7DDf15;
+    address bnbStargateComposer = 0x75D573607f5047C728D3a786BE3Ba33765712875;
+    address sepStargateComposer = 0x4febD509277f485A5feB90fb20DC0D3FAe6Bf856;
+
     function run() external {
         address deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
 
@@ -56,7 +60,14 @@ contract Deploy is Script {
         }
 
         if (stargateComponent == address(0)) {
-            stargateComponent = address(new StargateComponent(lzEndpoint));
+            stargateComponent = address(
+                new StargateComponent(
+                    lzEndpoint,
+                    block.chainid == 11_155_111
+                        ? sepStargateComposer
+                        : block.chainid == 97 ? bnbStargateComposer : arbStargateComposer
+                )
+            );
         }
     }
 
@@ -87,10 +98,14 @@ contract Deploy is Script {
 
         // Stargate Component
         selectors[i++] = StargateComponent.lzEndpoint.selector;
-        selectors[i++] = StargateComponent.prepareTransferAndCall.selector;
-        selectors[i++] = StargateComponent.sendStargate.selector;
+        selectors[i++] = StargateComponent.stargateV1Composer.selector;
+        selectors[i++] = StargateComponent.quoteV1.selector;
+        selectors[i++] = StargateComponent.quoteV2.selector;
+        selectors[i++] = StargateComponent.sendStargateV1.selector;
+        selectors[i++] = StargateComponent.sendStargateV2.selector;
+        selectors[i++] = StargateComponent.sgReceive.selector;
         selectors[i++] = StargateComponent.lzCompose.selector;
-        for (uint256 k; k < 4; ++k) {
+        for (uint256 k; k < 8; ++k) {
             componentAddresses[j++] = stargateComponent;
         }
 
