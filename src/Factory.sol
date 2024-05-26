@@ -15,7 +15,7 @@ import { CallbackComponentLibrary } from "./libraries/CallbackComponentLibrary.s
 /// @title Factory
 /// @notice This contract serves as a proxy for dynamic function execution.
 /// @dev It maps function selectors to their corresponding component contracts.
-contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
+contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     //-----------------------------------------------------------------------//
     // function selectors and component addresses are stored as bytes data:      //
     // selector . address                                                    //
@@ -46,7 +46,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
         _componentsAndSelectorsAddress = SSTORE2.write({ data: componentsAndSelectors });
     }
 
-    /// @notice Initializes a Factory contract.
+    /// @inheritdoc IFactory
     function initialize(address newOwner, bytes[] calldata initialCalls) external initializer {
         _transferOwnership(newOwner);
 
@@ -56,7 +56,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
     }
 
     // =========================
-    // fallback function
+    // fallback functions
     // =========================
 
     /// @inheritdoc IFactory
@@ -64,8 +64,9 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
         _multicall(false, bytes32(0), data);
     }
 
-    function multicall(bytes32 insert, bytes[] calldata data) external {
-        _multicall(true, insert, data);
+    /// @inheritdoc IFactory
+    function multicall(bytes32 replace, bytes[] calldata data) external {
+        _multicall(true, replace, data);
     }
 
     /// @notice Fallback function to execute component associated with incoming function selectors.
@@ -78,7 +79,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
             component = _getAddress(msg.sig);
 
             if (component == address(0)) {
-                revert Factory_FunctionDoesNotExist(msg.sig);
+                revert IFactory.Factory_FunctionDoesNotExist(msg.sig);
             }
         }
 
@@ -99,7 +100,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
     // internal function
     // =======================
 
-    function _multicall(bool isOverride, bytes32 insert, bytes[] calldata data) internal {
+    function _multicall(bool isOverride, bytes32 replace, bytes[] calldata data) internal {
         address[] memory components = _getAddresses(isOverride, data);
 
         assembly ("memory-safe") {
@@ -114,7 +115,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
 
                 let component
 
-                let argInsert
+                let argReplace
             } length {
                 length := sub(length, 1)
                 cDataOffset := add(cDataOffset, 32)
@@ -123,7 +124,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
                 component := mload(memoryOffset)
                 let offset := add(cDataStart, calldataload(cDataOffset))
                 if iszero(component) {
-                    // revert Factory_FunctionDoesNotExist(selector);
+                    // revert IFactory.Factory_FunctionDoesNotExist(selector);
                     mstore(0, 0x9365f537)
                     mstore(
                         32,
@@ -138,16 +139,17 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
                 let cSize := calldataload(offset)
                 calldatacopy(ptr, add(offset, 32), cSize)
 
-                if argInsert { if returndatasize() { returndatacopy(add(ptr, argInsert), 0, returndatasize()) } }
+                // all methods will return only 32 bytes
+                if argReplace { if returndatasize() { returndatacopy(add(ptr, argReplace), 0, 32) } }
 
                 if iszero(delegatecall(gas(), component, ptr, cSize, 0, 0)) {
                     returndatacopy(0, 0, returndatasize())
                     revert(0, returndatasize())
                 }
 
-                if insert {
-                    argInsert := and(insert, 0xffff)
-                    insert := shr(insert, 16)
+                if replace {
+                    argReplace := and(replace, 0xffff)
+                    replace := shr(replace, 16)
                 }
             }
         }
@@ -161,7 +163,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
         bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
 
         if (componentsAndSelectors.length < 24) {
-            revert Factory_FunctionDoesNotExist(selector);
+            revert IFactory.Factory_FunctionDoesNotExist(selector);
         }
 
         return BinarySearch.binarySearch({ selector: selector, componentsAndSelectors: componentsAndSelectors });
@@ -178,7 +180,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
         bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
 
         if (componentsAndSelectors.length < 24) {
-            revert Factory_FunctionDoesNotExist(0x00000000);
+            revert IFactory.Factory_FunctionDoesNotExist(0x00000000);
         }
 
         uint256 cDataStart;
@@ -214,7 +216,7 @@ contract Factory is UUPSUpgradeable, Ownable2Step, Initializable, IFactory {
         }
     }
 
-    /// @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract. Called by
+    /// @dev Function that should revert IFactory.when `msg.sender` is not authorized to upgrade the contract. Called by
     /// {upgradeTo} and {upgradeToAndCall}.
     ///
     /// Normally, this function will use an xref:access.adoc[access control] modifier such as {Ownable-onlyOwner}.
