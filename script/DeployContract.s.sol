@@ -35,7 +35,7 @@ contract Deploy is Script {
         vm.startBroadcast(deployer);
 
         _deployImplemetations();
-        address factory = _deployFactory();
+        address factory = DeployFactory.deployFactory(transferComponent, multiswapRouterComponent);
 
         if (proxy == address(0)) {
             proxy = address(new Proxy{ salt: salt }(deployer));
@@ -56,7 +56,7 @@ contract Deploy is Script {
         }
 
         if (transferComponent == address(0)) {
-            transferComponent = address(new TransferComponent());
+            transferComponent = address(new TransferComponent(WBNB));
         }
 
         if (stargateComponent == address(0)) {
@@ -70,22 +70,28 @@ contract Deploy is Script {
             );
         }
     }
+}
 
-    function _deployFactory() internal returns (address) {
+library DeployFactory {
+    function deployFactory(address transferComponent, address multiswapRouterComponent) internal returns (address) {
         bytes4[] memory selectors = new bytes4[](250);
         address[] memory componentAddresses = new address[](250);
 
         uint256 i;
         uint256 j;
 
-        // ERC20 Component
-        selectors[i++] = TransferComponent.transfer.selector;
-        selectors[i++] = TransferComponent.transferNative.selector;
-        componentAddresses[j++] = transferComponent;
-        componentAddresses[j++] = transferComponent;
+        if (transferComponent != address(0)) {
+            // transfer Component
+            selectors[i++] = TransferComponent.transferToken.selector;
+            selectors[i++] = TransferComponent.transferNative.selector;
+            selectors[i++] = TransferComponent.unwrapNativeAndTransferTo.selector;
+            for (uint256 k; k < 3; ++k) {
+                componentAddresses[j++] = transferComponent;
+            }
+        }
 
-        if (multiswapRouterComponent != address(1)) {
-            // Multiswap Component
+        if (multiswapRouterComponent != address(0)) {
+            // multiswap Component
             selectors[i++] = MultiswapRouterComponent.wrappedNative.selector;
             selectors[i++] = MultiswapRouterComponent.feeContract.selector;
             selectors[i++] = MultiswapRouterComponent.setFeeContract.selector;
@@ -96,18 +102,18 @@ contract Deploy is Script {
             }
         }
 
-        // Stargate Component
-        selectors[i++] = StargateComponent.lzEndpoint.selector;
-        selectors[i++] = StargateComponent.stargateV1Composer.selector;
-        selectors[i++] = StargateComponent.quoteV1.selector;
-        selectors[i++] = StargateComponent.quoteV2.selector;
-        selectors[i++] = StargateComponent.sendStargateV1.selector;
-        selectors[i++] = StargateComponent.sendStargateV2.selector;
-        selectors[i++] = StargateComponent.sgReceive.selector;
-        selectors[i++] = StargateComponent.lzCompose.selector;
-        for (uint256 k; k < 8; ++k) {
-            componentAddresses[j++] = stargateComponent;
-        }
+        // TODO Stargate Component
+        // selectors[i++] = StargateComponent.lzEndpoint.selector;
+        // selectors[i++] = StargateComponent.stargateV1Composer.selector;
+        // selectors[i++] = StargateComponent.quoteV1.selector;
+        // selectors[i++] = StargateComponent.quoteV2.selector;
+        // selectors[i++] = StargateComponent.sendStargateV1.selector;
+        // selectors[i++] = StargateComponent.sendStargateV2.selector;
+        // selectors[i++] = StargateComponent.sgReceive.selector;
+        // selectors[i++] = StargateComponent.lzCompose.selector;
+        // for (uint256 k; k < 8; ++k) {
+        //     componentAddresses[j++] = stargateComponent;
+        // }
 
         assembly {
             mstore(selectors, i)
