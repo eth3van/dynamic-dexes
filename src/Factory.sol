@@ -10,7 +10,7 @@ import { BinarySearch } from "./libraries/BinarySearch.sol";
 import { IFactory } from "./interfaces/IFactory.sol";
 import { Ownable2Step } from "./external/Ownable2Step.sol";
 
-import { CallbackComponentLibrary } from "./libraries/CallbackComponentLibrary.sol";
+import { TransientStorageComponentLibrary } from "./libraries/TransientStorageComponentLibrary.sol";
 
 /// @title Factory
 /// @notice This contract serves as a proxy for dynamic function execution.
@@ -65,7 +65,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     }
 
     /// @inheritdoc IFactory
-    function multicall(bytes32 replace, bytes[] calldata data) external {
+    function multicall(bytes32 replace, bytes[] calldata data) external payable {
         _multicall(true, replace, data);
     }
 
@@ -73,7 +73,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     /// @dev If a component for the incoming selector is found, it delegates the call to that component.
     /// @dev If callback address in storage is not address(0) - it delegates the call to that address.
     fallback() external payable {
-        address component = CallbackComponentLibrary.getCallbackAddress();
+        address component = TransientStorageComponentLibrary.getCallbackAddress();
 
         if (component == address(0)) {
             component = _getAddress(msg.sig);
@@ -103,6 +103,8 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     function _multicall(bool isOverride, bytes32 replace, bytes[] calldata data) internal {
         address[] memory components = _getAddresses(isOverride, data);
 
+        TransientStorageComponentLibrary.setSenderAddress(msg.sender);
+
         assembly ("memory-safe") {
             for {
                 let length := data.length
@@ -116,6 +118,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
                 let component
 
                 let argReplace
+                let notFirstCall
             } length {
                 length := sub(length, 1)
                 cDataOffset := add(cDataOffset, 32)
@@ -142,9 +145,19 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
                 // all methods will return only 32 bytes
                 if argReplace { if returndatasize() { returndatacopy(add(ptr, argReplace), 0, 32) } }
 
-                if iszero(delegatecall(gas(), component, ptr, cSize, 0, 0)) {
-                    returndatacopy(0, 0, returndatasize())
-                    revert(0, returndatasize())
+                switch notFirstCall
+                case 1 {
+                    if iszero(callcode(gas(), component, 0, ptr, cSize, 0, 0)) {
+                        returndatacopy(0, 0, returndatasize())
+                        revert(0, returndatasize())
+                    }
+                }
+                default {
+                    notFirstCall := 1
+                    if iszero(delegatecall(gas(), component, ptr, cSize, 0, 0)) {
+                        returndatacopy(0, 0, returndatasize())
+                        revert(0, returndatasize())
+                    }
                 }
 
                 if replace {
@@ -153,6 +166,8 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
                 }
             }
         }
+
+        TransientStorageComponentLibrary.setSenderAddress(address(0));
     }
 
     /// @dev Searches for the component address associated with a function `selector`.

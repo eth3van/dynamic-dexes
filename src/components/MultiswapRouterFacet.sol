@@ -13,7 +13,7 @@ import { TransferHelper } from "./libraries/TransferHelper.sol";
 import { IMultiswapRouterComponent } from "./interfaces/IMultiswapRouterComponent.sol";
 import { IWrappedNative } from "./interfaces/IWrappedNative.sol";
 
-import { CallbackComponentLibrary } from "../libraries/CallbackComponentLibrary.sol";
+import { TransientStorageComponentLibrary } from "../libraries/TransientStorageComponentLibrary.sol";
 
 import { IFeeContract } from "../interfaces/IFeeContract.sol";
 
@@ -105,7 +105,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
     // main logic
     // =========================
 
-    //// @inheritdoc IMultiswapRouterComponent
+    /// @inheritdoc IMultiswapRouterComponent
     function multiswap(IMultiswapRouterComponent.MultiswapCalldata calldata data)
         external
         payable
@@ -116,7 +116,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         amount = _multiswap(isNative, data);
     }
 
-    //// @inheritdoc IMultiswapRouterComponent
+    /// @inheritdoc IMultiswapRouterComponent
     function partswap(IMultiswapRouterComponent.PartswapCalldata calldata data) external payable returns (uint256 amount) {
         address tokenIn = data.tokenIn;
         uint256 fullAmount = data.fullAmount;
@@ -219,7 +219,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                     //     if version 3 - to this contract
                     TransferHelper.safeTransferFrom({
                         token: tokenIn,
-                        from: msg.sender,
+                        from: TransientStorageComponentLibrary.getSenderAddress(),
                         to: uni3 ? address(this) : firstPair,
                         value: amountIn
                     });
@@ -262,12 +262,12 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         _checkOutputAmount(amountIn, data.minAmountOut);
 
         {
-            IFeeContract _feeContract = _getLocalStorage().feeContract;
-            if (address(_feeContract) != address(0)) {
-                // TODO update
-                // TransferHelper.safeApprove({ token: tokenIn, spender: address(_feeContract), value: amountIn });
-                // amountIn = _feeContract.writeFees(data.referralAddress, tokenIn, amountIn);
-            }
+            // TODO update
+            // IFeeContract _feeContract = _getLocalStorage().feeContract;
+            // if (address(_feeContract) != address(0)) {
+            //     TransferHelper.safeApprove({ token: tokenIn, spender: address(_feeContract), value: amountIn });
+            //     amountIn = _feeContract.writeFees(data.referralAddress, tokenIn, amountIn);
+            // }
         }
 
         return amountIn;
@@ -293,6 +293,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
             revert MultiswapRouterComponent_InvalidPartswapCalldata();
         }
 
+        address sender = TransientStorageComponentLibrary.getSenderAddress();
         {
             uint256 fullAmountCheck;
             for (uint256 i; i < length; i = _unsafeAddOne(i)) {
@@ -310,21 +311,23 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                 uint256 balanceInBeforeTransfer =
                     TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
 
-                // Transfer full amountIn for all swaps
-                TransferHelper.safeTransferFrom({
-                    token: tokenIn,
-                    from: msg.sender,
-                    to: address(this),
-                    value: fullAmount
-                });
+                if (balanceInBeforeTransfer < fullAmount) {
+                    // Transfer full amountIn for all swaps
+                    TransferHelper.safeTransferFrom({
+                        token: tokenIn,
+                        from: sender,
+                        to: address(this),
+                        value: fullAmount
+                    });
 
-                uint256 amountInAfterTransfer =
-                    TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
+                    uint256 amountInAfterTransfer =
+                        TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
 
-                _checkOutputAmount(amountInAfterTransfer, balanceInBeforeTransfer);
+                    _checkOutputAmount(amountInAfterTransfer, balanceInBeforeTransfer);
 
-                unchecked {
-                    fullAmount = amountInAfterTransfer - balanceInBeforeTransfer;
+                    unchecked {
+                        fullAmount = amountInAfterTransfer - balanceInBeforeTransfer;
+                    }
                 }
             }
         }
@@ -372,27 +375,26 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                     }
                 }
 
-                // TODO check
                 if (remain == 0) {
                     break;
                 }
             }
 
             if (remain > 0) {
-                TransferHelper.safeTransfer({ token: tokenIn, to: msg.sender, value: remain });
+                TransferHelper.safeTransfer({ token: tokenIn, to: sender, value: remain });
             }
         }
 
         _checkOutputAmount(exactAmountOut, data.minAmountOut);
 
         {
-            IFeeContract _feeContract = _getLocalStorage().feeContract;
-            if (address(_feeContract) != address(0)) {
-                // TODO update
-                // address tokenOut = data.tokenOut;
-                // TransferHelper.safeApprove({ token: tokenOut, spender: address(_feeContract), value: exactAmountOut });
-                // exactAmountOut = _feeContract.writeFees(data.referralAddress, tokenOut, exactAmountOut);
-            }
+            // TODO update
+            // IFeeContract _feeContract = _getLocalStorage().feeContract;
+            // if (address(_feeContract) != address(0)) {
+            //     address tokenOut = data.tokenOut;
+            //     TransferHelper.safeApprove({ token: tokenOut, spender: address(_feeContract), value: exactAmountOut });
+            //     exactAmountOut = _feeContract.writeFees(data.referralAddress, tokenOut, exactAmountOut);
+            // }
         }
 
         return (exactAmountOut);
@@ -427,7 +429,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
 
         // caching pool address and callback address in storage
         _getLocalStorage().poolAddressCache = address(pool);
-        CallbackComponentLibrary.setCallbackAddress({ callbackAddress: _self });
+        TransientStorageComponentLibrary.setCallbackAddress({ callbackAddress: _self });
 
         uint256 balanceOutBeforeSwap = TransferHelper.safeGetBalance({ token: tokenOut, account: address(this) });
 
