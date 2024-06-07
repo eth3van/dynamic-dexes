@@ -34,7 +34,7 @@ contract MultiswapTest is Test {
     address factoryImplementation;
 
     function setUp() external {
-        vm.createSelectFork(vm.envString("BNB_RPC_URL"));
+        vm.createSelectFork(vm.rpcUrl("bsc"));
 
         deal(USDT, user, 1000e18);
 
@@ -45,7 +45,7 @@ contract MultiswapTest is Test {
         multiswapRouterComponent = address(new MultiswapRouterComponent(WBNB));
         transferComponent = address(new TransferComponent(WBNB));
 
-        factoryImplementation = DeployFactory.deployFactory(transferComponent, multiswapRouterComponent);
+        factoryImplementation = DeployFactory.deployFactory(transferComponent, multiswapRouterComponent, address(0));
 
         router = IFactory(address(new Proxy(owner)));
 
@@ -66,6 +66,8 @@ contract MultiswapTest is Test {
 
     function test_multiswapRouterComponent_constructor_shouldInitializeInConstructor() external {
         MultiswapRouterComponent _multiswapRouterComponent = new MultiswapRouterComponent(WBNB);
+        TransferComponent _transferComponent = new TransferComponent(WBNB);
+        _transferComponent;
 
         assertEq(_multiswapRouterComponent.wrappedNative(), WBNB);
     }

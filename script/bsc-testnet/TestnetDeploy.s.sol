@@ -3,41 +3,37 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
-import { Quoter } from "../src/lens/Quoter.sol";
+import { Factory } from "../../src/Factory.sol";
+import { Proxy, InitialImplementation } from "../../src/proxy/Proxy.sol";
+import { MultiswapRouterComponent } from "../../src/components/MultiswapRouterComponent.sol";
+import { TransferComponent } from "../../src/components/TransferComponent.sol";
+import { StargateComponent } from "../../src/components/bridges/StargateComponent.sol";
 
-import { Factory } from "../src/Factory.sol";
-import { Proxy, InitialImplementation } from "../src/proxy/Proxy.sol";
-import { MultiswapRouterComponent } from "../src/components/MultiswapRouterComponent.sol";
-import { TransferComponent } from "../src/components/TransferComponent.sol";
-import { StargateComponent } from "../src/components/bridges/StargateComponent.sol";
-
-import { DeployEngine } from "./DeployEngine.sol";
-
-import "../test/Helpers.t.sol";
+import { DeployEngine } from "../DeployEngine.sol";
 
 contract Deploy is Script {
-    address quoter = 0x46f4ce97aFd70cd668984C874795941E7Fc591CA;
-    address quoterProxy = 0x51a85c557cD6Aa35880D55799849dDCD6c20B5Cd;
+    address multiswapRouterComponent = 0xFC08aCb8ab29159Cc864D7c7EC8AF2b611DE0820;
+    address transferComponent = 0xd41B295F9695c3E90e845918aBB384D73a85C635;
 
-    address multiswapRouterComponent = 0x8973bdDC469c0CE56D9b41dA25C4f1b4D0c4DBa9;
-    address transferComponent = 0x3BBcB05884ff9b8149E94FcfC7Bd013d18d12D2f;
+    address stargateComponent = 0xB5fEB7A7241058509655F18246e2C9cd10B39626;
 
-    address stargateComponent = address(0);
-
-    address proxy = 0x2Ea84370660448fd9017715f2F36727AE64f5Fe3;
+    address proxy = 0x29F4Bf32E90cAcb299fC82569670f670d334630a;
 
     bool upgrade;
 
-    bytes32 salt = keccak256("factory-salt-1");
-    bytes32 quotersalt = keccak256("quoter-salt-1");
+    // ===================
+    // helpers for multiswapComponent and transferComponent deployment
+    // ===================
+
+    address WBNB = 0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd;
 
     // ===================
     // helpers for stargateComponent deployment
     // ===================
 
-    // bnb mainnet
-    address endpointV2 = 0x1a44076050125825900e736c501f859c50fE728c;
-    address stargateComposerV1 = 0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9;
+    // bnb testnet
+    address endpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
+    address stargateComposerV1 = 0x75D573607f5047C728D3a786BE3Ba33765712875;
 
     // ===================
 
@@ -46,25 +42,13 @@ contract Deploy is Script {
 
         vm.startBroadcast(deployer);
 
-        if (quoter == address(0)) {
-            quoter = address(new Quoter(WBNB));
-
-            if (quoterProxy == address(0)) {
-                quoterProxy = address(new Proxy{ salt: quotersalt }(deployer));
-
-                InitialImplementation(quoterProxy).upgradeTo(quoter, abi.encodeCall(Quoter.initialize, (deployer)));
-            } else {
-                Quoter(quoterProxy).upgradeTo(quoter);
-            }
-        }
-
         _deployImplemetations();
 
         if (upgrade) {
             address factory = DeployFactory.deployFactory(transferComponent, multiswapRouterComponent, stargateComponent);
 
             if (proxy == address(0)) {
-                proxy = address(new Proxy{ salt: salt }(deployer));
+                proxy = address(new Proxy(deployer));
 
                 bytes[] memory initCalls = new bytes[](0);
 

@@ -576,7 +576,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         isNative = tokenIn == address(0);
 
         if (isNative) {
-            if (msg.value < amount) {
+            if (address(this).balance < amount) {
                 revert MultiswapRouterComponent_InvalidAmountIn();
             }
 

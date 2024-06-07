@@ -162,7 +162,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
 
                 if replace {
                     argReplace := and(replace, 0xffff)
-                    replace := shr(replace, 16)
+                    replace := shr(16, replace)
                 }
             }
         }
