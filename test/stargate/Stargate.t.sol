@@ -5,17 +5,14 @@ import "forge-std/Test.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 import { Solarray } from "solarray/Solarray.sol";
-import { DeployFactory } from "../../script/DeployContract.s.sol";
+import { DeployEngine, Contracts, getContracts } from "../../script/DeployEngine.sol";
 
 import { Proxy, InitialImplementation } from "../../src/proxy/Proxy.sol";
 
-import { TransferHelper } from "../../src/components/libraries/TransferHelper.sol";
-
 import { IFactory } from "../../src/Factory.sol";
-import { MultiswapRouterComponent, IMultiswapRouterComponent } from "../../src/components/MultiswapRouterComponent.sol";
+import { IMultiswapRouterComponent } from "../../src/components/MultiswapRouterComponent.sol";
 import { TransferComponent } from "../../src/components/TransferComponent.sol";
 import { StargateComponent, IStargateComponent, IStargateComposer } from "../../src/components/bridges/StargateComponent.sol";
-import { IOwnable } from "../../src/external/IOwnable.sol";
 import { TransferHelper } from "../../src/components/libraries/TransferHelper.sol";
 
 import { Quoter } from "../../src/lens/Quoter.sol";
@@ -29,29 +26,22 @@ contract StargateComponentTest is Test {
     address owner = makeAddr("owner");
     address user = makeAddr("user");
 
-    address multiswapRouterComponent;
-    address transferComponent;
-    address stargateComponent;
     address factoryImplementation;
-
-    // bnb mainnet
-    address endpointV2 = 0x1a44076050125825900e736c501f859c50fE728c;
-    address stargateComposerV1 = 0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9;
+    Contracts contracts;
 
     function setUp() external {
         vm.createSelectFork(vm.rpcUrl("bsc"));
+
+        contracts = getContracts(56);
+        (contracts,) = DeployEngine.deployImplemetations(contracts, true);
 
         deal(USDT, user, 1000e18);
 
         startHoax(owner);
 
-        quoter = new Quoter(WBNB);
+        quoter = new Quoter(contracts.wrappedNative);
 
-        multiswapRouterComponent = address(new MultiswapRouterComponent(WBNB));
-        transferComponent = address(new TransferComponent(WBNB));
-        stargateComponent = address(new StargateComponent(endpointV2, stargateComposerV1));
-
-        factoryImplementation = DeployFactory.deployFactory(transferComponent, multiswapRouterComponent, stargateComponent);
+        factoryImplementation = DeployEngine.deployFactory(contracts);
 
         bridge = IFactory(address(new Proxy(owner)));
 
@@ -67,10 +57,10 @@ contract StargateComponentTest is Test {
     // =========================
 
     function test_stargateComponent_constructor_shouldInitializeInConstructor() external {
-        StargateComponent _stargateComponent = new StargateComponent(endpointV2, stargateComposerV1);
+        StargateComponent _stargateComponent = new StargateComponent(contracts.endpointV2, contracts.stargateComposerV1);
 
-        assertEq(_stargateComponent.lzEndpoint(), endpointV2);
-        assertEq(_stargateComponent.stargateV1Composer(), stargateComposerV1);
+        assertEq(_stargateComponent.lzEndpoint(), contracts.endpointV2);
+        assertEq(_stargateComponent.stargateV1Composer(), contracts.stargateComposerV1);
     }
 
     // =========================
@@ -363,7 +353,7 @@ contract StargateComponentTest is Test {
         bridge.multicall{ value: fee }(
             0x0000000000000000000000000000000000000000000000000000000000240064,
             Solarray.bytess(
-                abi.encodeCall(MultiswapRouterComponent.multiswap, (mData)),
+                abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(
                     StargateComponent.sendStargateV1,
                     (
@@ -406,7 +396,7 @@ contract StargateComponentTest is Test {
         bridge.multicall{ value: fee }(
             0x0000000000000000000000000000000000000000000000000000000000240044,
             Solarray.bytess(
-                abi.encodeCall(MultiswapRouterComponent.multiswap, (mData)),
+                abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(StargateComponent.sendStargateV2, (stargatePool, dstEidV2, 0, user, 0, bytes(""))),
                 abi.encodeCall(TransferComponent.transferToken, (USDT, 0, user))
             )

@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import { IERC20 } from "forge-std/interfaces/IERC20.sol";
 
 import { Solarray } from "solarray/Solarray.sol";
-import { DeployFactory } from "../../script/DeployContract.s.sol";
+import { DeployEngine, Contracts, getContracts } from "../../script/DeployEngine.sol";
 
 import { Proxy, InitialImplementation } from "../../src/proxy/Proxy.sol";
 
@@ -29,23 +29,22 @@ contract MultiswapTest is Test {
     address owner = makeAddr("owner");
     address user = makeAddr("user");
 
-    address multiswapRouterComponent;
-    address transferComponent;
     address factoryImplementation;
+    Contracts contracts;
 
     function setUp() external {
         vm.createSelectFork(vm.rpcUrl("bsc"));
+
+        contracts = getContracts(56);
+        (contracts,) = DeployEngine.deployImplemetations(contracts, true);
 
         deal(USDT, user, 1000e18);
 
         startHoax(owner);
 
-        quoter = new Quoter(WBNB);
+        quoter = new Quoter(contracts.wrappedNative);
 
-        multiswapRouterComponent = address(new MultiswapRouterComponent(WBNB));
-        transferComponent = address(new TransferComponent(WBNB));
-
-        factoryImplementation = DeployFactory.deployFactory(transferComponent, multiswapRouterComponent, address(0));
+        factoryImplementation = DeployEngine.deployFactory(contracts);
 
         router = IFactory(address(new Proxy(owner)));
 
@@ -246,7 +245,8 @@ contract MultiswapTest is Test {
     }
 
     function test_multiswapRouterComponent_failedCallback() external {
-        (, bytes memory data) = multiswapRouterComponent.call(abi.encodeWithSelector(TransferComponent.transferToken.selector));
+        (, bytes memory data) =
+            contracts.multiswapRouterComponent.call(abi.encodeWithSelector(TransferComponent.transferToken.selector));
 
         assertEq(bytes4(data), IMultiswapRouterComponent.MultiswapRouterComponent_SenderMustBeUniswapV3Pool.selector);
     }
