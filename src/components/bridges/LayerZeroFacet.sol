@@ -209,7 +209,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
 
         uint256 fee = _quote(dstEid, options);
 
-        if (fee < address(this).balance) {
+        if (fee > address(this).balance) {
             revert LayerZeroComponent_FeeNotMet();
         }
 
