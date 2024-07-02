@@ -58,10 +58,10 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
     bytes32 private constant MULTISWAP_ROUTER_COMPONENT_STORAGE =
         0x73a3a170c596aa083fa5166abc0f3239e53b41143f45c8bd25a602694c09d735;
 
-    /// @dev Returns the storage slot for the entry point logic.
+    /// @dev Returns the storage slot for the multiswapRouterComponent.
     /// @dev This function utilizes inline assembly to directly access the desired storage position.
     ///
-    /// @return s The storage slot pointer for the entry point logic.
+    /// @return s The storage slot pointer for the multiswapRouterComponent.
     function _getLocalStorage() internal pure returns (MultiswapRouterComponentStorage storage s) {
         assembly ("memory-safe") {
             s.slot := MULTISWAP_ROUTER_COMPONENT_STORAGE
@@ -576,7 +576,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         isNative = tokenIn == address(0);
 
         if (isNative) {
-            if (msg.value < amount) {
+            if (address(this).balance < amount) {
                 revert MultiswapRouterComponent_InvalidAmountIn();
             }
 
