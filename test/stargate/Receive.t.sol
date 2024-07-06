@@ -54,7 +54,7 @@ contract ReceiveStargateComponentTest is Test {
     // lzCompose
     // =========================
 
-    function test_stargateComponent_laCompose_shouldLzCompose() external {
+    function test_stargateComponent_lzCompose_shouldLzCompose() external {
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 0;
