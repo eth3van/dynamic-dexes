@@ -96,6 +96,7 @@ contract StargateComponent is BaseOwnableComponent, ILayerZeroComposer, IStargat
 
             if (balanceBefore < amountLD) {
                 token.safeTransferFrom({ from: sender, to: address(this), value: amountLD });
+                balanceBefore = token.safeGetBalance({ account: address(this) });
             }
 
             token.safeApprove({ spender: poolAddress, value: amountLD });
