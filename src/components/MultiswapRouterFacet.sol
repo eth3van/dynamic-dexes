@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import { IERC20 } from "forge-std/interfaces/IERC20.sol";
-
 import { BaseOwnableComponent } from "./BaseOwnableComponent.sol";
 
 import { IRouter } from "./interfaces/IRouter.sol";
@@ -106,9 +104,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
     // =========================
 
     /// @inheritdoc IMultiswapRouterComponent
-    function multiswap(
-        IMultiswapRouterComponent.MultiswapCalldata calldata data
-    )
+    function multiswap(IMultiswapRouterComponent.MultiswapCalldata calldata data)
         external
         payable
         returns (uint256 amount)
@@ -134,7 +130,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         // Checking that msg.sender is equal to the value from the cache
         // and zeroing the storage
         if (msg.sender != s.poolAddressCache) {
-            revert MultiswapRouterComponent_SenderMustBeUniswapV3Pool();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_SenderMustBeUniswapV3Pool();
         }
         s.poolAddressCache = address(0);
 
@@ -150,7 +146,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
 
         // swaps entirely within 0-liquidity regions are not supported
         if (amount0Delta == 0 && amount1Delta == 0) {
-            revert MultiswapRouterComponent_FailedV3Swap();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_FailedV3Swap();
         }
 
         uint256 amountToPay = amount0Delta > 0 ? uint256(amount0Delta) : uint256(amount1Delta);
@@ -175,7 +171,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         uint256 length = data.pairs.length;
         // if length of array is zero -> revert
         if (length == 0) {
-            revert MultiswapRouterComponent_InvalidPairsArray();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidPairsArray();
         }
 
         uint256 lastIndex;
@@ -190,7 +186,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         uint256 amountIn = data.amountIn;
 
         if (amountIn == 0) {
-            revert MultiswapRouterComponent_InvalidAmountIn();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidAmountIn();
         }
 
         // scope for transfer, avoids stack too deep errors
@@ -232,7 +228,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                 }
             }
         }
-        
+
         // scope for swaps, avoids stack too deep errors
         {
             bytes32 addressThisBytes32 = _addressThisBytes32();
@@ -246,7 +242,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                 } else {
                     // otherwise take the next pair
                     destination = data.pairs[_unsafeAddOne(i)];
-                    
+
                     assembly ("memory-safe") {
                         // if the next pair belongs to version 3 of the protocol - the address
                         // of the router is set as the recipient, otherwise - the next pair
@@ -271,12 +267,18 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         _checkOutputAmount(amountIn, data.minAmountOut);
 
         {
-            // TODO update
-            // IFeeContract _feeContract = _getLocalStorage().feeContract;
-            // if (address(_feeContract) != address(0)) {
-            //     TransferHelper.safeApprove({ token: tokenIn, spender: address(_feeContract), value: amountIn });
-            //     amountIn = _feeContract.writeFees(data.referralAddress, tokenIn, amountIn);
-            // }
+            IFeeContract _feeContract = _getLocalStorage().feeContract;
+            if (address(_feeContract) != address(0)) {
+                uint256 fee = _feeContract.writeFees({ token: tokenIn, amount: amountIn });
+
+                if (fee > 0) {
+                    TransferHelper.safeTransfer({ token: tokenIn, to: address(_feeContract), value: fee });
+
+                    unchecked {
+                        amountIn -= fee;
+                    }
+                }
+            }
         }
 
         return amountIn;
@@ -296,10 +298,10 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         uint256 length = data.pairs.length;
         // if length of array is zero -> revert
         if (length == 0) {
-            revert MultiswapRouterComponent_InvalidPairsArray();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidPairsArray();
         }
         if (length != data.amountsIn.length) {
-            revert MultiswapRouterComponent_InvalidPartswapCalldata();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidPartswapCalldata();
         }
 
         address sender = TransientStorageComponentLibrary.getSenderAddress();
@@ -313,7 +315,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
 
             // sum of amounts array must be lte to fullAmount
             if (fullAmountCheck > fullAmount) {
-                revert MultiswapRouterComponent_InvalidPartswapCalldata();
+                revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidPartswapCalldata();
             }
 
             if (!isNative) {
@@ -389,21 +391,26 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
             }
         }
 
+        address tokenOut = data.tokenOut;
         unchecked {
-            exactAmountOut =
-                TransferHelper.safeGetBalance({ token: data.tokenOut, account: address(this) }) - exactAmountOut;
+            exactAmountOut = TransferHelper.safeGetBalance({ token: tokenOut, account: address(this) }) - exactAmountOut;
         }
 
         _checkOutputAmount(exactAmountOut, data.minAmountOut);
 
         {
-            // TODO update
-            // IFeeContract _feeContract = _getLocalStorage().feeContract;
-            // if (address(_feeContract) != address(0)) {
-            //     address tokenOut = data.tokenOut;
-            //     TransferHelper.safeApprove({ token: tokenOut, spender: address(_feeContract), value: exactAmountOut });
-            //     exactAmountOut = _feeContract.writeFees(data.referralAddress, tokenOut, exactAmountOut);
-            // }
+            IFeeContract _feeContract = _getLocalStorage().feeContract;
+            if (address(_feeContract) != address(0)) {
+                uint256 fee = _feeContract.writeFees({ token: tokenOut, amount: exactAmountOut });
+
+                if (fee > 0) {
+                    TransferHelper.safeTransfer({ token: tokenOut, to: address(_feeContract), value: fee });
+
+                    unchecked {
+                        exactAmountOut -= fee;
+                    }
+                }
+            }
         }
 
         return exactAmountOut;
@@ -433,7 +440,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
         // cast a uint256 to a int256, revert on overflow
         // https://github.com/Uniswap/v3-core/blob/main/contracts/libraries/SafeCast.sol#L24
         if (amountIn > CAST_INT_CONSTANT) {
-            revert MultiswapRouterComponent_InvalidIntCast();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidIntCast();
         }
 
         // caching pool address and callback address in storage
@@ -526,7 +533,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                 // swap(uint256,uint256,address) selector
                 !_makeCall(address(pair), abi.encodeWithSelector(0x6d9a640a, amount0Out, amount1Out, destination))
             ) {
-                revert MultiswapRouterComponent_FailedV2Swap();
+                revert IMultiswapRouterComponent.MultiswapRouterComponent_FailedV2Swap();
             }
         }
 
@@ -558,7 +565,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
             tokenOut = pair.token1();
         } else {
             if (tokenIn != pair.token1()) {
-                revert MultiswapRouterComponent_InvalidTokenIn();
+                revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidTokenIn();
             }
 
             tokenOut = token0;
@@ -568,7 +575,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
     /// @dev check balance after swap
     function _checkOutputAmount(uint256 greaterBalance, uint256 lowerBalance) internal pure {
         if (greaterBalance < lowerBalance) {
-            revert MultiswapRouterComponent_InvalidAmountOut();
+            revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidAmountOut();
         }
     }
 
@@ -597,7 +604,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
 
         if (isNative) {
             if (address(this).balance < amount) {
-                revert MultiswapRouterComponent_InvalidAmountIn();
+                revert IMultiswapRouterComponent.MultiswapRouterComponent_InvalidAmountIn();
             }
 
             _wrappedNative.deposit{ value: amount }();

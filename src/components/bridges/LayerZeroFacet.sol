@@ -20,7 +20,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     // =========================
 
     /// @dev LayerZeroV2 endpoint
-    ILayerZeroEndpointV2 internal immutable _endpoint;
+    ILayerZeroEndpointV2 internal immutable _endpointV2;
 
     // =========================
     // storage
@@ -55,8 +55,8 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     // constructor
     // =========================
 
-    constructor(address endpoint) {
-        _endpoint = ILayerZeroEndpointV2(endpoint);
+    constructor(address endpointV2) {
+        _endpointV2 = ILayerZeroEndpointV2(endpointV2);
     }
 
     // =========================
@@ -65,7 +65,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
 
     /// @inheritdoc ILayerZeroComponent
     function eid() external view returns (uint32) {
-        return _endpoint.eid();
+        return _endpointV2.eid();
     }
 
     /// @inheritdoc ILayerZeroComponent
@@ -74,23 +74,23 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     }
 
     /// @inheritdoc ILayerZeroComponent
-    function getPeer(uint32 dstEid) external view returns (bytes32 trustedRemote) {
-        return _getPeer(dstEid);
+    function getPeer(uint32 remoteEid) external view returns (bytes32 trustedRemote) {
+        return _getPeer(remoteEid);
     }
 
     /// @inheritdoc ILayerZeroComponent
-    function getGasLimit(uint32 dstEid) external view returns (uint128 gasLimit) {
-        gasLimit = _getGasLimit(dstEid);
+    function getGasLimit(uint32 remoteEid) external view returns (uint128 gasLimit) {
+        gasLimit = _getGasLimit(remoteEid);
     }
 
     /// @inheritdoc ILayerZeroComponent
     function getDelegate() external view returns (address) {
-        return _endpoint.delegates({ oapp: address(this) });
+        return _endpointV2.delegates({ oapp: address(this) });
     }
 
     /// @inheritdoc ILayerZeroComponent
     function getUlnConfig(address lib, uint32 remoteEid) external view returns (UlnConfig memory) {
-        bytes memory config = _endpoint.getConfig({ oapp: address(this), lib: lib, eid: remoteEid, configType: 2 });
+        bytes memory config = _endpointV2.getConfig({ oapp: address(this), lib: lib, eid: remoteEid, configType: 2 });
 
         return abi.decode(config, (UlnConfig));
     }
@@ -98,7 +98,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     /// @inheritdoc ILayerZeroComponent
     function getNativeSendCap(uint32 remoteEid) external view returns (uint128 nativeCap) {
         (,,, nativeCap) = ISendLib(
-            ISendLib(_endpoint.getSendLibrary({ sender: address(this), dstEid: remoteEid })).getExecutorConfig({
+            ISendLib(_endpointV2.getSendLibrary({ sender: address(this), dstEid: remoteEid })).getExecutorConfig({
                 oapp: address(this),
                 remoteEid: remoteEid
             }).executor
@@ -107,13 +107,21 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
 
     /// @inheritdoc ILayerZeroComponent
     function isSupportedEid(uint32 remoteEid) external view returns (bool) {
-        return _endpoint.isSupportedEid({ eid: remoteEid });
+        return _endpointV2.isSupportedEid({ eid: remoteEid });
     }
 
     /// @inheritdoc ILayerZeroComponent
-    function estimateFee(uint32 dstEid, uint128 nativeAmount, address to) external view returns (uint256 nativeFee) {
+    function estimateFee(
+        uint32 remoteEid,
+        uint128 nativeAmount,
+        address to
+    )
+        external
+        view
+        returns (uint256 nativeFee)
+    {
         unchecked {
-            return _quote(dstEid, _createNativeDropOption(dstEid, nativeAmount, to));
+            return _quote(remoteEid, _createNativeDropOption(remoteEid, nativeAmount, to));
         }
     }
 
@@ -125,7 +133,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     function setPeers(uint32[] calldata remoteEids, bytes32[] calldata remoteAddresses) external onlyOwner {
         uint256 length = remoteEids.length;
         if (length != remoteAddresses.length) {
-            revert LayerZeroComponent_LengthMismatch();
+            revert ILayerZeroComponent.LayerZeroComponent_LengthMismatch();
         }
 
         LayerZeroComponentStorage storage s = _getLocalStorage();
@@ -142,7 +150,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     /// @inheritdoc ILayerZeroComponent
     function setGasLimit(uint32[] calldata remoteEids, uint128[] calldata gasLimits) external onlyOwner {
         if (remoteEids.length != gasLimits.length) {
-            revert LayerZeroComponent_LengthMismatch();
+            revert ILayerZeroComponent.LayerZeroComponent_LengthMismatch();
         }
 
         LayerZeroComponentStorage storage s = _getLocalStorage();
@@ -157,13 +165,13 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     }
 
     /// @inheritdoc ILayerZeroComponent
-    function setDefaultGasLimit(uint128 defaultGasLimit_) external onlyOwner {
-        _getLocalStorage().defaultGasLimit = defaultGasLimit_;
+    function setDefaultGasLimit(uint128 newDefaultGasLimit) external onlyOwner {
+        _getLocalStorage().defaultGasLimit = newDefaultGasLimit;
     }
 
     /// @inheritdoc ILayerZeroComponent
     function setDelegate(address delegate) external onlyOwner {
-        _endpoint.setDelegate({ delegate: delegate });
+        _endpointV2.setDelegate({ delegate: delegate });
     }
 
     /// @inheritdoc ILayerZeroComponent
@@ -194,7 +202,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
             }
         }
 
-        IMessageLibManager(address(_endpoint)).setConfig({ oapp: address(this), lib: lib, params: configs });
+        IMessageLibManager(address(_endpointV2)).setConfig({ oapp: address(this), lib: lib, params: configs });
     }
 
     // =========================
@@ -202,21 +210,21 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     // =========================
 
     /// @inheritdoc ILayerZeroComponent
-    function sendDeposit(uint32 dstEid, uint128 nativeDrop, address to) external payable {
+    function sendDeposit(uint32 remoteEid, uint128 nativeDrop, address to) external payable {
         address sender = TransientStorageComponentLibrary.getSenderAddress();
 
-        bytes memory options = _createNativeDropOption(dstEid, nativeDrop, to > address(0) ? to : sender);
+        bytes memory options = _createNativeDropOption(remoteEid, nativeDrop, to > address(0) ? to : sender);
 
-        uint256 fee = _quote(dstEid, options);
+        uint256 fee = _quote(remoteEid, options);
 
         if (fee > address(this).balance) {
-            revert LayerZeroComponent_FeeNotMet();
+            revert ILayerZeroComponent.LayerZeroComponent_FeeNotMet();
         }
 
-        _endpoint.send{ value: fee }({
+        _endpointV2.send{ value: fee }({
             params: MessagingParams({
-                dstEid: dstEid,
-                receiver: _getPeer(dstEid),
+                dstEid: remoteEid,
+                receiver: _getPeer(remoteEid),
                 message: bytes(""),
                 options: options,
                 payInLzToken: false
@@ -250,7 +258,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
 
     /// @dev Creates native drop options for passed `nativeAmount` and `to`.
     function _createNativeDropOption(
-        uint32 dstEid,
+        uint32 remoteEid,
         uint128 nativeAmount,
         address to
     )
@@ -271,7 +279,7 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
                 // uint16(17) - payload length
                 // uint8(1) - lzReceive type
                 uint48(0x00301001101),
-                _getGasLimit(dstEid)
+                _getGasLimit(remoteEid)
             ),
             // uint8(1) - worker id
             // uint16(49) - payload length
@@ -283,11 +291,11 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
     }
 
     /// @dev Calculates fee in native token for passed options.
-    function _quote(uint32 dstEid, bytes memory options) internal view returns (uint256 nativeFee) {
-        MessagingFee memory fee = _endpoint.quote({
+    function _quote(uint32 remoteEid, bytes memory options) internal view returns (uint256 nativeFee) {
+        MessagingFee memory fee = _endpointV2.quote({
             params: MessagingParams({
-                dstEid: dstEid,
-                receiver: _getPeer(dstEid),
+                dstEid: remoteEid,
+                receiver: _getPeer(remoteEid),
                 message: bytes(""),
                 options: options,
                 payInLzToken: false
@@ -298,9 +306,9 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
         return fee.nativeFee;
     }
 
-    /// @dev Hepler method for get peer for passed dstEid.
-    function _getPeer(uint32 dstEid) internal view returns (bytes32 trustedRemote) {
-        trustedRemote = _getLocalStorage().peers[dstEid];
+    /// @dev Hepler method for get peer for passed remoteEid.
+    function _getPeer(uint32 remoteEid) internal view returns (bytes32 trustedRemote) {
+        trustedRemote = _getLocalStorage().peers[remoteEid];
         if (trustedRemote == 0) {
             assembly {
                 trustedRemote := address()
@@ -308,11 +316,11 @@ contract LayerZeroComponent is Ownable, ILayerZeroComponent {
         }
     }
 
-    /// @dev Hepler method for get gasLimit for passed dstEid.
-    function _getGasLimit(uint32 dstEid) internal view returns (uint128 gasLimit) {
+    /// @dev Hepler method for get gasLimit for passed remoteEid.
+    function _getGasLimit(uint32 remoteEid) internal view returns (uint128 gasLimit) {
         LayerZeroComponentStorage storage s = _getLocalStorage();
 
-        gasLimit = s.gasLimitLookup[dstEid];
+        gasLimit = s.gasLimitLookup[remoteEid];
         if (gasLimit == 0) {
             gasLimit = s.defaultGasLimit;
         }
