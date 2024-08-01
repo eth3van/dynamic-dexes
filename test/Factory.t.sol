@@ -11,6 +11,8 @@ import { Solarray } from "solarray/Solarray.sol";
 
 import { Initializable } from "../src/proxy/Initializable.sol";
 
+import { BaseTest } from "./BaseTest.t.sol";
+
 contract Component1 {
     struct ComponentStorage {
         uint256 value;
@@ -70,19 +72,16 @@ contract Component2 {
     }
 }
 
-contract FactoryTest is Test {
-    Factory factory;
-
-    address owner = makeAddr("owner");
-    address user = makeAddr("user");
-
+contract FactoryTest is BaseTest {
     address component1;
     address component2;
 
     function setUp() external {
         vm.createSelectFork(vm.rpcUrl("bsc"));
 
-        startHoax(owner);
+        _createUsers();
+
+        _resetPrank(owner);
 
         component1 = address(new Component1());
         component2 = address(new Component2());
@@ -97,20 +96,20 @@ contract FactoryTest is Test {
         selectors[6] = Component2.setValue3.selector;
 
         address factoryImplementation = address(
-            new Factory(
-                DeployEngine.getBytesArray(
-                    selectors, Solarray.addresses(component1, component1, component1, component2, component2, component2, component2)
-                )
-            )
+            new Factory({
+                componentsAndSelectors: DeployEngine.getBytesArray({
+                    selectors: selectors,
+                    componentAddresses: Solarray.addresses(component1, component1, component1, component2, component2, component2, component2)
+                })
+            })
         );
 
-        factory = Factory(payable(address(new Proxy(owner))));
+        factory = Factory(payable(address(new Proxy({ initialOwner: owner }))));
 
-        InitialImplementation(address(factory)).upgradeTo(
-            factoryImplementation, abi.encodeCall(Factory.initialize, (owner, new bytes[](0)))
-        );
-
-        vm.stopPrank();
+        InitialImplementation(address(factory)).upgradeTo({
+            implementation: factoryImplementation,
+            data: abi.encodeCall(Factory.initialize, (owner, new bytes[](0)))
+        });
     }
 
     // =========================
@@ -120,12 +119,14 @@ contract FactoryTest is Test {
     event Initialized(uint8 version);
 
     function test_enrtryPoint_constructor_shouldDisavbleInitializers() external {
+        _resetPrank(owner);
+
         vm.expectEmit();
-        emit Initialized(255);
-        Factory _factory = new Factory(bytes(""));
+        emit Initialized({ version: 255 });
+        Factory _factory = new Factory({ componentsAndSelectors: bytes("") });
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        _factory.initialize(owner, new bytes[](0));
+        _factory.initialize({ newOwner: owner, initialCalls: new bytes[](0) });
     }
 
     function test_factory_initialize_shouldInitializeWithNewOwnerAndCallInitialCalls() external {
@@ -138,21 +139,23 @@ contract FactoryTest is Test {
         selectors[5] = Component2.setValue3.selector;
 
         address factoryImplementation = address(
-            new Factory(
-                DeployEngine.getBytesArray(
-                    selectors, Solarray.addresses(component1, component1, component2, component2, component2, component2)
-                )
-            )
+            new Factory({
+                componentsAndSelectors: DeployEngine.getBytesArray({
+                    selectors: selectors,
+                    componentAddresses: Solarray.addresses(component1, component1, component2, component2, component2, component2)
+                })
+            })
         );
 
-        InitialImplementation proxy = InitialImplementation(address(new Proxy(owner)));
+        InitialImplementation proxy = InitialImplementation(address(new Proxy({ initialOwner: owner })));
 
-        hoax(owner);
+        _resetPrank(owner);
+
         vm.expectEmit();
-        emit Initialized(1);
-        proxy.upgradeTo(
-            factoryImplementation,
-            abi.encodeCall(
+        emit Initialized({ version: 1 });
+        proxy.upgradeTo({
+            implementation: factoryImplementation,
+            data: abi.encodeCall(
                 Factory.initialize,
                 (
                     owner,
@@ -163,7 +166,7 @@ contract FactoryTest is Test {
                     )
                 )
             )
-        );
+        });
 
         assertEq(Factory(payable(address(proxy))).owner(), owner);
         assertEq(Component1(address(proxy)).getValue1(), 1);
@@ -176,27 +179,32 @@ contract FactoryTest is Test {
     // =========================
 
     function test_factory_shouldRevertIfNoComponentsAndSelectors() external {
-        address factoryImplementation = address(new Factory(bytes("")));
+        address factoryImplementation = address(new Factory({ componentsAndSelectors: bytes("") }));
 
-        InitialImplementation proxy = InitialImplementation(payable(address(new Proxy(owner))));
+        InitialImplementation proxy = InitialImplementation(payable(address(new Proxy({ initialOwner: owner }))));
 
-        hoax(owner);
-        proxy.upgradeTo(factoryImplementation, abi.encodeCall(Factory.initialize, (owner, new bytes[](0))));
+        _resetPrank(owner);
+
+        proxy.upgradeTo({
+            implementation: factoryImplementation,
+            data: abi.encodeCall(Factory.initialize, (owner, new bytes[](0)))
+        });
 
         vm.expectRevert(
             abi.encodeWithSelector(IFactory.Factory_FunctionDoesNotExist.selector, Component1.setValue1.selector)
         );
-        Component1(address(proxy)).setValue1(1);
+        Component1(address(proxy)).setValue1({ value: 1 });
 
         vm.expectRevert(abi.encodeWithSelector(IFactory.Factory_FunctionDoesNotExist.selector, bytes4(0x000000)));
-        Factory(payable(address(proxy))).multicall(
-            Solarray.bytess(abi.encodeCall(Component1.setValue1, (1)), abi.encodeCall(Component2.setValue2, (2)))
-        );
+        Factory(payable(address(proxy))).multicall({
+            data: Solarray.bytess(abi.encodeCall(Component1.setValue1, (1)), abi.encodeCall(Component2.setValue2, (2)))
+        });
 
         vm.expectRevert(abi.encodeWithSelector(IFactory.Factory_FunctionDoesNotExist.selector, bytes4(0x000000)));
-        Factory(payable(address(proxy))).multicall(
-            bytes32(0), Solarray.bytess(abi.encodeCall(Component1.setValue1, (1)), abi.encodeCall(Component2.setValue2, (2)))
-        );
+        Factory(payable(address(proxy))).multicall({
+            replace: bytes32(0),
+            data: Solarray.bytess(abi.encodeCall(Component1.setValue1, (1)), abi.encodeCall(Component2.setValue2, (2)))
+        });
     }
 
     // =========================
@@ -204,9 +212,9 @@ contract FactoryTest is Test {
     // =========================
 
     function test_factory_multicall_shouldCallSeveralMethodsInOneTx(uint256 value1, uint256 value2) external {
-        factory.multicall(
-            Solarray.bytess(abi.encodeCall(Component1.setValue1, (value1)), abi.encodeCall(Component2.setValue2, (value2)))
-        );
+        factory.multicall({
+            data: Solarray.bytess(abi.encodeCall(Component1.setValue1, (value1)), abi.encodeCall(Component2.setValue2, (value2)))
+        });
 
         assertEq(Component1(address(factory)).getValue1(), value1);
         assertEq(Component2(address(factory)).getValue2(), value2);
@@ -216,34 +224,36 @@ contract FactoryTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(IFactory.Factory_FunctionDoesNotExist.selector, bytes4(0x11223344))
         );
-        factory.multicall(
-            Solarray.bytess(abi.encodeWithSelector(Component1.setValue1.selector, 1), abi.encodeWithSelector(0x11223344, 2))
-        );
+        factory.multicall({
+            data: Solarray.bytess(
+                abi.encodeWithSelector(Component1.setValue1.selector, 1), abi.encodeWithSelector(0x11223344, 2)
+            )
+        });
 
         vm.expectRevert(
             abi.encodeWithSelector(IFactory.Factory_FunctionDoesNotExist.selector, bytes4(0x11223344))
         );
-        factory.multicall(
-            Solarray.bytess(abi.encodeWithSelector(0x11223344, 1), abi.encodeWithSelector(Component2.setValue2.selector, 2))
-        );
+        factory.multicall({
+            data: Solarray.bytess(
+                abi.encodeWithSelector(0x11223344, 1), abi.encodeWithSelector(Component2.setValue2.selector, 2)
+            )
+        });
     }
 
     function test_factory_multicall_shouldRevertIfOneMethodReverts() external {
         vm.expectRevert("revert method");
-        factory.multicall(
-            Solarray.bytess(
-                abi.encodeWithSelector(Component1.revertMethod.selector),
-                abi.encodeWithSelector(Component1.setValue1.selector, 1)
+        factory.multicall({
+            data: Solarray.bytess(
+                abi.encodeWithSelector(Component1.revertMethod.selector), abi.encodeWithSelector(Component1.setValue1.selector, 1)
             )
-        );
+        });
 
         vm.expectRevert("revert method");
-        factory.multicall(
-            Solarray.bytess(
-                abi.encodeWithSelector(Component1.setValue1.selector, 1),
-                abi.encodeWithSelector(Component1.revertMethod.selector)
+        factory.multicall({
+            data: Solarray.bytess(
+                abi.encodeWithSelector(Component1.setValue1.selector, 1), abi.encodeWithSelector(Component1.revertMethod.selector)
             )
-        );
+        });
     }
 
     // =========================
@@ -256,18 +266,18 @@ contract FactoryTest is Test {
     )
         external
     {
-        Component1(address(factory)).setValue1(value1);
-        Component2(address(factory)).setValue3(value2);
+        Component1(address(factory)).setValue1({ value: value1 });
+        Component2(address(factory)).setValue3({ value: value2 });
 
-        factory.multicall(
-            0x0000000000000000000000000000000000000000000000000000000400000004,
-            Solarray.bytess(
+        factory.multicall({
+            replace: 0x0000000000000000000000000000000000000000000000000000000400000004,
+            data: Solarray.bytess(
                 abi.encodeCall(Component1.getValue1, ()),
                 abi.encodeCall(Component2.setValue2, (0)),
                 abi.encodeCall(Component2.getValue3, ()),
                 abi.encodeCall(Component1.setValue1, (0))
             )
-        );
+        });
 
         assertEq(Component1(address(factory)).getValue1(), value2);
         assertEq(Component2(address(factory)).getValue2(), value1);
@@ -283,6 +293,6 @@ contract FactoryTest is Test {
                 IFactory.Factory_FunctionDoesNotExist.selector, InitialImplementation.upgradeTo.selector
             )
         );
-        InitialImplementation(address(factory)).upgradeTo(address(0), bytes(""));
+        InitialImplementation(address(factory)).upgradeTo({ implementation: address(0), data: bytes("") });
     }
 }
