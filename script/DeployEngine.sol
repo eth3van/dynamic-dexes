@@ -17,10 +17,11 @@ struct Contracts {
     address quoter;
     address quoterProxy;
     address proxy;
+    address feeContract;
+    address feeContractProxy;
     //
     address wrappedNative;
     address endpointV2;
-    address stargateComposerV1;
 }
 
 function getContracts(uint256 chainId) pure returns (Contracts memory) {
@@ -35,46 +36,106 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             quoter: address(0),
             quoterProxy: address(0),
             proxy: address(0),
+            feeContract: address(0),
+            feeContractProxy: address(0),
             //
-            wrappedNative: address(0),
-            endpointV2: address(0),
-            stargateComposerV1: address(0)
+            wrappedNative: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
+            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
         });
     }
 
     // bnb
     if (chainId == 56) {
         return Contracts({
-            transferComponent: 0x63C870276Ba8f7dC248B89320a7d24f938B5F14C,
-            multiswapRouterComponent: 0xaA0e646040eC978059E835764E594af3A130f5Ac,
-            stargateComponent: 0xB1368ce5FF0b927F62C41226c630083a8Ea259EF,
-            layerZeroComponent: 0x285297B6c29F67baa92b2333FCcBE906917b7137,
+            transferComponent: 0xC0D032E84682c43e101E1e6578E0dEded5d224eD,
+            multiswapRouterComponent: 0x65DfbA5338137e0De3c7e9C11D9BFEd0B02c33b8,
+            stargateComponent: 0xdd4ec4bFecAb02CbE60CdBA8De49821a1105c24f,
+            layerZeroComponent: 0xC2F6a6c1712899fCA57df645cfA0E9d04e0B5A38,
             //
-            quoter: 0x46f4ce97aFd70cd668984C874795941E7Fc591CA,
-            quoterProxy: 0x51a85c557cD6Aa35880D55799849dDCD6c20B5Cd,
-            proxy: 0x2Ea84370660448fd9017715f2F36727AE64f5Fe3,
+            quoter: 0x2ef78f53965cB6b6BE3DF79e143D07790c3E84b3,
+            quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
+            proxy: 0x9AE4De30ad3943e3b65E5DF41e8FB8CC0F0213d7,
+            feeContract: 0xA41be65A7C167D401F8bD980ebb019AF5a7bfe26,
+            feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
-            stargateComposerV1: 0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9
+            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
         });
     }
 
     // polygon
     if (chainId == 137) {
         return Contracts({
-            transferComponent: 0x29F4Bf32E90cAcb299fC82569670f670d334630a,
-            multiswapRouterComponent: 0xD4366D4b3af01111a9a3c97c0dfEdc44A3e8C2cF,
-            stargateComponent: 0x29588c2cd38631d3892b3d6B7D0CB0Ad342067F0,
-            layerZeroComponent: 0xd4f528eC9D963467F3ED1f51CB4e197e88c8eBA3,
+            transferComponent: 0x48229df22D71eecFf545A3698ACbacc5CF41D658,
+            multiswapRouterComponent: 0x995f1B46F71Bc83a90653286e85185D27956687e,
+            stargateComponent: 0x40EC78B5A9170b66Aa12B17627A97429f596a185,
+            layerZeroComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
             //
-            quoter: 0xFC08aCb8ab29159Cc864D7c7EC8AF2b611DE0820,
-            quoterProxy: 0x51a85c557cD6Aa35880D55799849dDCD6c20B5Cd,
-            proxy: 0x2Ea84370660448fd9017715f2F36727AE64f5Fe3,
+            quoter: 0x33E3337E3d68aB3b56C86613CCF34CB0d006Ab04,
+            quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
+            proxy: 0x9AE4De30ad3943e3b65E5DF41e8FB8CC0F0213d7,
+            feeContract: 0x911eEd36e5fB42d0202FAA2b0A848d35777eB05F,
+            feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
-            stargateComposerV1: 0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9
+            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+        });
+    }
+
+    // avalanche
+    if (chainId == 43_114) {
+        return Contracts({
+            transferComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
+            multiswapRouterComponent: 0x649BC4A713de188d4e68977ad61f9A5AD795D276,
+            stargateComponent: 0x40EC78B5A9170b66Aa12B17627A97429f596a185,
+            layerZeroComponent: 0xC0D032E84682c43e101E1e6578E0dEded5d224eD,
+            //
+            quoter: 0x33E3337E3d68aB3b56C86613CCF34CB0d006Ab04,
+            quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
+            proxy: 0x9AE4De30ad3943e3b65E5DF41e8FB8CC0F0213d7,
+            feeContract: 0x861fF1De5877d91ebE37cE8fB95274524f5f8E21,
+            feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
+            //
+            wrappedNative: 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7,
+            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+        });
+    }
+
+    // optimism
+    if (chainId == 10) {
+        return Contracts({
+            transferComponent: 0x48229df22D71eecFf545A3698ACbacc5CF41D658,
+            multiswapRouterComponent: 0x995f1B46F71Bc83a90653286e85185D27956687e,
+            stargateComponent: 0x6bF6c75738dC7114E162fB4df10ABADCF1b5bDb0,
+            layerZeroComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
+            //
+            quoter: 0x033D438b5a95216740F14e80b6Ce045C0E65d610,
+            quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
+            proxy: 0x9AE4De30ad3943e3b65E5DF41e8FB8CC0F0213d7,
+            feeContract: 0x911eEd36e5fB42d0202FAA2b0A848d35777eB05F,
+            feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
+            //
+            wrappedNative: 0x4200000000000000000000000000000000000006,
+            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+        });
+    }
+
+    // arbitrum
+    if (chainId == 42_161) {
+        return Contracts({
+            transferComponent: 0x48229df22D71eecFf545A3698ACbacc5CF41D658,
+            multiswapRouterComponent: 0x995f1B46F71Bc83a90653286e85185D27956687e,
+            stargateComponent: 0x6bF6c75738dC7114E162fB4df10ABADCF1b5bDb0,
+            layerZeroComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
+            //
+            quoter: 0x033D438b5a95216740F14e80b6Ce045C0E65d610,
+            quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
+            proxy: 0x9AE4De30ad3943e3b65E5DF41e8FB8CC0F0213d7,
+            feeContract: 0x911eEd36e5fB42d0202FAA2b0A848d35777eB05F,
+            feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
+            //
+            wrappedNative: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1,
+            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
         });
     }
 
@@ -115,18 +176,14 @@ library DeployEngine {
 
         if (contracts.stargateComponent != address(0)) {
             selectors[i++] = StargateComponent.lzEndpoint.selector;
-            selectors[i++] = StargateComponent.stargateV1Composer.selector;
-            selectors[i++] = StargateComponent.quoteV1.selector;
             selectors[i++] = StargateComponent.quoteV2.selector;
-            selectors[i++] = StargateComponent.sendStargateV1.selector;
             selectors[i++] = StargateComponent.sendStargateV2.selector;
-            selectors[i++] = StargateComponent.sgReceive.selector;
             selectors[i++] = StargateComponent.lzCompose.selector;
-            for (uint256 k; k < 8; ++k) {
+            for (uint256 k; k < 4; ++k) {
                 componentAddresses[j++] = contracts.stargateComponent;
             }
         }
-
+        // TODO remove duplicates
         if (contracts.layerZeroComponent != address(0)) {
             selectors[i++] = LayerZeroComponent.eid.selector;
             selectors[i++] = LayerZeroComponent.defaultGasLimit.selector;
@@ -156,7 +213,11 @@ library DeployEngine {
             mstore(componentAddresses, j)
         }
 
-        return address(new Factory(getBytesArray(selectors, componentAddresses)));
+        return address(
+            new Factory({
+                componentsAndSelectors: getBytesArray({ selectors: selectors, componentAddresses: componentAddresses })
+            })
+        );
     }
 
     function deployImplemetations(
@@ -169,25 +230,26 @@ library DeployEngine {
         if (contracts.multiswapRouterComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.multiswapRouterComponent = address(new MultiswapRouterComponent(contracts.wrappedNative));
+            contracts.multiswapRouterComponent =
+                address(new MultiswapRouterComponent({ wrappedNative_: contracts.wrappedNative }));
         }
 
         if (contracts.transferComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.transferComponent = address(new TransferComponent(contracts.wrappedNative));
+            contracts.transferComponent = address(new TransferComponent({ wrappedNative: contracts.wrappedNative }));
         }
 
         if (contracts.stargateComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.stargateComponent = address(new StargateComponent(contracts.endpointV2, contracts.stargateComposerV1));
+            contracts.stargateComponent = address(new StargateComponent({ endpointV2: contracts.endpointV2 }));
         }
 
         if (contracts.layerZeroComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.layerZeroComponent = address(new LayerZeroComponent(contracts.endpointV2));
+            contracts.layerZeroComponent = address(new LayerZeroComponent({ endpointV2: contracts.endpointV2 }));
         }
 
         return (contracts, upgrade);
@@ -195,17 +257,17 @@ library DeployEngine {
 
     function getBytesArray(
         bytes4[] memory selectors,
-        address[] memory logicAddresses
+        address[] memory componentAddresses
     )
         internal
         pure
         returns (bytes memory logicsAndSelectors)
     {
-        quickSort(selectors, logicAddresses);
+        quickSort(selectors, componentAddresses);
 
         uint256 selectorsLength = selectors.length;
-        if (selectorsLength != logicAddresses.length) {
-            revert("length of selectors and logicAddresses must be equal");
+        if (selectorsLength != componentAddresses.length) {
+            revert("length of selectors and componentAddresses must be equal");
         }
 
         if (selectorsLength > 0) {
@@ -238,7 +300,7 @@ library DeployEngine {
             // offset in memory to the beginning of selectors array values
             let selectorsOffset := add(selectors, 32)
             // offset in memory to beginning of logicsAddresses array values
-            let logicsAddressesOffset := add(logicAddresses, 32)
+            let logicsAddressesOffset := add(componentAddresses, 32)
             // offset in memory to beginning of logicsAndSelectorsOffset bytes
             let logicsAndSelectorsOffset := add(logicsAndSelectors, 32)
 
@@ -258,7 +320,7 @@ library DeployEngine {
         }
     }
 
-    function quickSort(bytes4[] memory selectors, address[] memory logicAddresses) internal pure {
+    function quickSort(bytes4[] memory selectors, address[] memory componentAddresses) internal pure {
         if (selectors.length <= 1) {
             return;
         }
@@ -279,7 +341,7 @@ library DeployEngine {
             low = stack[uint256(top)];
             --top;
 
-            int256 pivotIndex = _partition(selectors, logicAddresses, low, high);
+            int256 pivotIndex = _partition(selectors, componentAddresses, low, high);
 
             if (pivotIndex - 1 > low) {
                 ++top;
@@ -299,7 +361,7 @@ library DeployEngine {
 
     function _partition(
         bytes4[] memory selectors,
-        address[] memory logicAddresses,
+        address[] memory componentAddresses,
         int256 low,
         int256 high
     )
@@ -315,18 +377,18 @@ library DeployEngine {
                 i++;
                 (selectors[uint256(i)], selectors[uint256(j)]) = (selectors[uint256(j)], selectors[uint256(i)]);
 
-                if (logicAddresses.length == selectors.length) {
-                    (logicAddresses[uint256(i)], logicAddresses[uint256(j)]) =
-                        (logicAddresses[uint256(j)], logicAddresses[uint256(i)]);
+                if (componentAddresses.length == selectors.length) {
+                    (componentAddresses[uint256(i)], componentAddresses[uint256(j)]) =
+                        (componentAddresses[uint256(j)], componentAddresses[uint256(i)]);
                 }
             }
         }
 
         (selectors[uint256(i + 1)], selectors[uint256(high)]) = (selectors[uint256(high)], selectors[uint256(i + 1)]);
 
-        if (logicAddresses.length == selectors.length) {
-            (logicAddresses[uint256(i + 1)], logicAddresses[uint256(high)]) =
-                (logicAddresses[uint256(high)], logicAddresses[uint256(i + 1)]);
+        if (componentAddresses.length == selectors.length) {
+            (componentAddresses[uint256(i + 1)], componentAddresses[uint256(high)]) =
+                (componentAddresses[uint256(high)], componentAddresses[uint256(i + 1)]);
         }
 
         return i + 1;

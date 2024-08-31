@@ -79,7 +79,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
             component = _getAddress(msg.sig);
 
             if (component == address(0)) {
-                revert IFactory.Factory_FunctionDoesNotExist(msg.sig);
+                revert IFactory.Factory_FunctionDoesNotExist({ selector: msg.sig });
             }
         }
 
@@ -103,7 +103,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     function _multicall(bool isOverride, bytes32 replace, bytes[] calldata data) internal {
         address[] memory components = _getAddresses(isOverride, data);
 
-        TransientStorageComponentLibrary.setSenderAddress(msg.sender);
+        TransientStorageComponentLibrary.setSenderAddress({ senderAddress: msg.sender });
 
         assembly ("memory-safe") {
             for {
@@ -159,7 +159,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
             }
         }
 
-        TransientStorageComponentLibrary.setSenderAddress(address(0));
+        TransientStorageComponentLibrary.setSenderAddress({ senderAddress: address(0) });
     }
 
     /// @dev Searches for the component address associated with a function `selector`.
@@ -170,7 +170,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
         bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
 
         if (componentsAndSelectors.length < 24) {
-            revert IFactory.Factory_FunctionDoesNotExist(selector);
+            revert IFactory.Factory_FunctionDoesNotExist({ selector: selector });
         }
 
         return BinarySearch.binarySearch({ selector: selector, componentsAndSelectors: componentsAndSelectors });
@@ -187,7 +187,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
         bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
 
         if (componentsAndSelectors.length < 24) {
-            revert IFactory.Factory_FunctionDoesNotExist(0x00000000);
+            revert IFactory.Factory_FunctionDoesNotExist({ selector: 0x00000000 });
         }
 
         uint256 cDataStart;
