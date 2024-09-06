@@ -147,9 +147,11 @@ library DeployEngine {
     function deployFactory(Contracts memory contracts) internal returns (address) {
         bytes4[] memory selectors = new bytes4[](250);
         address[] memory componentAddresses = new address[](250);
+        uint256[] memory addressIndexes = new uint256[](250);
 
         uint256 i;
         uint256 j;
+        uint256 addressIndex;
 
         if (contracts.transferComponent != address(0)) {
             // transfer Component
@@ -158,8 +160,10 @@ library DeployEngine {
             selectors[i++] = TransferComponent.unwrapNative.selector;
             selectors[i++] = TransferComponent.unwrapNativeAndTransferTo.selector;
             for (uint256 k; k < 4; ++k) {
-                componentAddresses[j++] = contracts.transferComponent;
+                addressIndexes[j++] = addressIndex;
             }
+            componentAddresses[addressIndex] = contracts.transferComponent;
+            ++addressIndex;
         }
 
         if (contracts.multiswapRouterComponent != address(0)) {
@@ -170,8 +174,10 @@ library DeployEngine {
             selectors[i++] = MultiswapRouterComponent.multiswap.selector;
             selectors[i++] = MultiswapRouterComponent.partswap.selector;
             for (uint256 k; k < 5; ++k) {
-                componentAddresses[j++] = contracts.multiswapRouterComponent;
+                addressIndexes[j++] = addressIndex;
             }
+            componentAddresses[addressIndex] = contracts.multiswapRouterComponent;
+            ++addressIndex;
         }
 
         if (contracts.stargateComponent != address(0)) {
@@ -180,10 +186,12 @@ library DeployEngine {
             selectors[i++] = StargateComponent.sendStargateV2.selector;
             selectors[i++] = StargateComponent.lzCompose.selector;
             for (uint256 k; k < 4; ++k) {
-                componentAddresses[j++] = contracts.stargateComponent;
+                addressIndexes[j++] = addressIndex;
             }
+            componentAddresses[addressIndex] = contracts.stargateComponent;
+            ++addressIndex;
         }
-        // TODO remove duplicates
+
         if (contracts.layerZeroComponent != address(0)) {
             selectors[i++] = LayerZeroComponent.eid.selector;
             selectors[i++] = LayerZeroComponent.defaultGasLimit.selector;
@@ -204,18 +212,25 @@ library DeployEngine {
             selectors[i++] = LayerZeroComponent.allowInitializePath.selector;
             selectors[i++] = LayerZeroComponent.lzReceive.selector;
             for (uint256 k; k < 18; ++k) {
-                componentAddresses[j++] = contracts.layerZeroComponent;
+                addressIndexes[j++] = addressIndex;
             }
+            componentAddresses[addressIndex] = contracts.layerZeroComponent;
+            ++addressIndex;
         }
 
         assembly {
             mstore(selectors, i)
-            mstore(componentAddresses, j)
+            mstore(addressIndexes, j)
+            mstore(componentAddresses, addressIndex)
         }
 
         return address(
             new Factory({
-                componentsAndSelectors: getBytesArray({ selectors: selectors, componentAddresses: componentAddresses })
+                componentsAndSelectors: getBytesArray({
+                    selectors: selectors,
+                    addressIndexes: addressIndexes,
+                    componentAddresses: componentAddresses
+                })
             })
         );
     }
@@ -257,17 +272,18 @@ library DeployEngine {
 
     function getBytesArray(
         bytes4[] memory selectors,
+        uint256[] memory addressIndexes,
         address[] memory componentAddresses
     )
         internal
         pure
         returns (bytes memory logicsAndSelectors)
     {
-        quickSort(selectors, componentAddresses);
+        quickSort(selectors, addressIndexes);
 
         uint256 selectorsLength = selectors.length;
-        if (selectorsLength != componentAddresses.length) {
-            revert("length of selectors and componentAddresses must be equal");
+        if (selectorsLength != addressIndexes.length) {
+            revert("length of selectors and addressIndexes must be equal");
         }
 
         if (selectorsLength > 0) {
@@ -289,38 +305,54 @@ library DeployEngine {
             }
         }
 
+        uint256 addressesLength = componentAddresses.length;
         unchecked {
-            logicsAndSelectors = new bytes(selectorsLength * 24);
+            logicsAndSelectors = new bytes(4 + selectorsLength * 5 + addressesLength * 20);
         }
 
         assembly ("memory-safe") {
-            let logicAndSelectorValue
-            // counter
-            let i
+            let selectorAndAddressIndexValue
             // offset in memory to the beginning of selectors array values
-            let selectorsOffset := add(selectors, 32)
-            // offset in memory to beginning of logicsAddresses array values
-            let logicsAddressesOffset := add(componentAddresses, 32)
-            // offset in memory to beginning of logicsAndSelectorsOffset bytes
+            selectors := add(selectors, 32)
+            // offset in memory to beginning of addressIndexes array values
+            addressIndexes := add(addressIndexes, 32)
+            // offset in memory to beginning of logicsAndSelectors bytes
             let logicsAndSelectorsOffset := add(logicsAndSelectors, 32)
 
-            for { } lt(i, selectorsLength) {
+            // write metadata -> selectors array length and addresses offset
+            mstore(logicsAndSelectorsOffset, shl(224, add(shl(16, selectorsLength), mul(selectorsLength, 5))))
+            logicsAndSelectorsOffset := add(logicsAndSelectorsOffset, 4)
+
+            for { } selectorsLength {
                 // post actions
-                i := add(i, 1)
-                selectorsOffset := add(selectorsOffset, 32)
-                logicsAddressesOffset := add(logicsAddressesOffset, 32)
-                logicsAndSelectorsOffset := add(logicsAndSelectorsOffset, 24)
+                selectorsLength := sub(selectorsLength, 1)
+                selectors := add(selectors, 32)
+                addressIndexes := add(addressIndexes, 32)
+                logicsAndSelectorsOffset := add(logicsAndSelectorsOffset, 5)
             } {
                 // value creation:
-                // 0xaaaaaaaaffffffffffffffffffffffffffffffffffffffff0000000000000000
-                logicAndSelectorValue := or(mload(selectorsOffset), shl(64, mload(logicsAddressesOffset)))
+                // 0xaaaaaaaaff000000000000000000000000000000000000000000000000000000
+                selectorAndAddressIndexValue := or(mload(selectors), shl(216, mload(addressIndexes)))
                 // store the value in the logicsAndSelectors byte array
-                mstore(logicsAndSelectorsOffset, logicAndSelectorValue)
+                mstore(logicsAndSelectorsOffset, selectorAndAddressIndexValue)
+            }
+
+            for {
+                // offset in memory to the beginning of componentAddresses array values
+                componentAddresses := add(componentAddresses, 32)
+            } addressesLength {
+                // post actions
+                addressesLength := sub(addressesLength, 1)
+                componentAddresses := add(componentAddresses, 32)
+                logicsAndSelectorsOffset := add(logicsAndSelectorsOffset, 20)
+            } {
+                // store the address in the logicsAndSelectors byte array
+                mstore(logicsAndSelectorsOffset, shl(96, mload(componentAddresses)))
             }
         }
     }
 
-    function quickSort(bytes4[] memory selectors, address[] memory componentAddresses) internal pure {
+    function quickSort(bytes4[] memory selectors, uint256[] memory addressIndexes) internal pure {
         if (selectors.length <= 1) {
             return;
         }
@@ -341,7 +373,7 @@ library DeployEngine {
             low = stack[uint256(top)];
             --top;
 
-            int256 pivotIndex = _partition(selectors, componentAddresses, low, high);
+            int256 pivotIndex = _partition(selectors, addressIndexes, low, high);
 
             if (pivotIndex - 1 > low) {
                 ++top;
@@ -361,7 +393,7 @@ library DeployEngine {
 
     function _partition(
         bytes4[] memory selectors,
-        address[] memory componentAddresses,
+        uint256[] memory addressIndexes,
         int256 low,
         int256 high
     )
@@ -377,18 +409,18 @@ library DeployEngine {
                 i++;
                 (selectors[uint256(i)], selectors[uint256(j)]) = (selectors[uint256(j)], selectors[uint256(i)]);
 
-                if (componentAddresses.length == selectors.length) {
-                    (componentAddresses[uint256(i)], componentAddresses[uint256(j)]) =
-                        (componentAddresses[uint256(j)], componentAddresses[uint256(i)]);
+                if (addressIndexes.length == selectors.length) {
+                    (addressIndexes[uint256(i)], addressIndexes[uint256(j)]) =
+                        (addressIndexes[uint256(j)], addressIndexes[uint256(i)]);
                 }
             }
         }
 
         (selectors[uint256(i + 1)], selectors[uint256(high)]) = (selectors[uint256(high)], selectors[uint256(i + 1)]);
 
-        if (componentAddresses.length == selectors.length) {
-            (componentAddresses[uint256(i + 1)], componentAddresses[uint256(high)]) =
-                (componentAddresses[uint256(high)], componentAddresses[uint256(i + 1)]);
+        if (addressIndexes.length == selectors.length) {
+            (addressIndexes[uint256(i + 1)], addressIndexes[uint256(high)]) =
+                (addressIndexes[uint256(high)], addressIndexes[uint256(i + 1)]);
         }
 
         return i + 1;

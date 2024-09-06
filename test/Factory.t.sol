@@ -99,7 +99,8 @@ contract FactoryTest is BaseTest {
             new Factory({
                 componentsAndSelectors: DeployEngine.getBytesArray({
                     selectors: selectors,
-                    componentAddresses: Solarray.addresses(component1, component1, component1, component2, component2, component2, component2)
+                    addressIndexes: Solarray.uint256s(0, 0, 0, 1, 1, 1, 1),
+                    componentAddresses: Solarray.addresses(component1, component2)
                 })
             })
         );
@@ -142,7 +143,8 @@ contract FactoryTest is BaseTest {
             new Factory({
                 componentsAndSelectors: DeployEngine.getBytesArray({
                     selectors: selectors,
-                    componentAddresses: Solarray.addresses(component1, component1, component2, component2, component2, component2)
+                    addressIndexes: Solarray.uint256s(0, 0, 1, 1, 1, 1),
+                    componentAddresses: Solarray.addresses(component1, component2)
                 })
             })
         );
