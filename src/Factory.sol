@@ -17,12 +17,14 @@ import { TransientStorageComponentLibrary } from "./libraries/TransientStorageCo
 /// @dev It maps function selectors to their corresponding component contracts.
 contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     //-----------------------------------------------------------------------//
-    // function selectors and component addresses are stored as bytes data:      //
-    // selector . address                                                    //
+    // function selectors and address indexes are stored as bytes data:      //
+    // selector . addressIndex                                               //
     // sample:                                                               //
     // 0xaaaaaaaa <- selector                                                //
-    // 0xffffffffffffffffffffffffffffffffffffffff <- address                 //
-    // 0xaaaaaaaaffffffffffffffffffffffffffffffffffffffff <- one element     //
+    // 0xff <- addressIndex                                                  //
+    // 0xaaaaaaaaff <- one element                                           //
+    //                                                                       //
+    // componentAddressess are stored in the end of the bytes array              //
     //-----------------------------------------------------------------------//
 
     /// @dev Address where component and selector bytes are stored using SSTORE2.
@@ -173,7 +175,20 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
             revert IFactory.Factory_FunctionDoesNotExist({ selector: selector });
         }
 
-        return BinarySearch.binarySearch({ selector: selector, componentsAndSelectors: componentsAndSelectors });
+        uint256 selectorsLength;
+        uint256 addressesOffset;
+        assembly ("memory-safe") {
+            let value := shr(224, mload(add(32, componentsAndSelectors)))
+            selectorsLength := shr(16, value)
+            addressesOffset := and(value, 0xffff)
+        }
+
+        return BinarySearch.binarySearch({
+            selector: selector,
+            componentsAndSelectors: componentsAndSelectors,
+            length: selectorsLength,
+            addressesOffset: addressesOffset
+        });
     }
 
     /// @dev Searches for the component addresses associated with a function `selectors`.
@@ -192,10 +207,16 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
 
         uint256 cDataStart;
         uint256 offset;
+        uint256 selectorsLength;
+        uint256 addressesOffset;
         assembly ("memory-safe") {
             cDataStart := mul(isOverride, 32)
             offset := add(68, cDataStart)
             cDataStart := add(68, cDataStart)
+
+            let value := shr(224, mload(add(32, componentsAndSelectors)))
+            selectorsLength := shr(16, value)
+            addressesOffset := and(value, 0xffff)
         }
 
         bytes4 selector;
@@ -209,7 +230,12 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
                 offset := add(offset, 32)
             }
 
-            components[i] = BinarySearch.binarySearch({ selector: selector, componentsAndSelectors: componentsAndSelectors });
+            components[i] = BinarySearch.binarySearch({
+                selector: selector,
+                componentsAndSelectors: componentsAndSelectors,
+                length: selectorsLength,
+                addressesOffset: addressesOffset
+            });
 
             unchecked {
                 // increment loop counter
