@@ -3,19 +3,23 @@ pragma solidity ^0.8.0;
 
 import {
     BaseTest,
-    IERC20,
     Solarray,
     IOwnable,
     TransferHelper,
     MultiswapRouterComponent,
     IMultiswapRouterComponent,
     TransferComponent,
-    ITransferComponent
+    ITransferComponent,
+    ISignatureTransfer,
+    SafeTransferLib,
+    console2
 } from "../BaseTest.t.sol";
 
 import "../Helpers.t.sol";
 
 contract MultiswapTest is BaseTest {
+    using SafeTransferLib for address;
+
     function setUp() external {
         vm.createSelectFork(vm.rpcUrl("bsc"));
 
@@ -26,6 +30,10 @@ contract MultiswapTest is BaseTest {
         deployForTest();
 
         deal({ token: USDT, to: user, give: 1000e18 });
+
+        _resetPrank(user);
+
+        USDT.safeApprove({ to: contracts.permit2, amount: 1000e18 });
     }
 
     // =========================
@@ -35,7 +43,8 @@ contract MultiswapTest is BaseTest {
     function test_multiswapRouterComponent_constructor_shouldInitializeInConstructor() external {
         MultiswapRouterComponent _multiswapRouterComponent =
             new MultiswapRouterComponent({ wrappedNative_: contracts.wrappedNative });
-        TransferComponent _transferComponent = new TransferComponent({ wrappedNative: contracts.wrappedNative });
+        TransferComponent _transferComponent =
+            new TransferComponent({ wrappedNative: contracts.wrappedNative, permit2: contracts.permit2 });
         _transferComponent;
 
         assertEq(_multiswapRouterComponent.wrappedNative(), contracts.wrappedNative);
@@ -81,6 +90,77 @@ contract MultiswapTest is BaseTest {
     }
 
     // =========================
+    // transferFromPermit2
+    // =========================
+
+    function test_transferComponent_transferFromPermit2_shouldFailIfTokenNotApproved() external {
+        _resetPrank(user);
+
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 0 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
+
+        vm.expectRevert();
+        factory.multicall({
+            data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 10_000e18, nonce, block.timestamp, signature))
+            )
+        });
+    }
+
+    function test_transferComponent_transferFromPermit2_shouldRevertIfTokenAmountIsZeroOrTransferFromFailed() external {
+        _resetPrank(user);
+
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 0 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
+
+        vm.expectRevert(ITransferComponent.TransferComponent_TransferFromFailed.selector);
+        factory.multicall({
+            data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 0, nonce, block.timestamp, signature))
+            )
+        });
+    }
+
+    function test_transferComponent_transferFromPermit2_shouldTransferFrom257Times() external {
+        _resetPrank(user);
+
+        for (uint256 i; i < 257; ++i) {
+            uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+
+            bytes memory signature = _permit2Sign(
+                userPk,
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 1e18 }),
+                    nonce: nonce,
+                    deadline: block.timestamp
+                })
+            );
+
+            factory.multicall({
+                data: Solarray.bytess(
+                    abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 1e18, nonce, block.timestamp, signature))
+                )
+            });
+        }
+    }
+
+    // =========================
     // multiswap
     // =========================
 
@@ -111,7 +191,7 @@ contract MultiswapTest is BaseTest {
         mData.pairs = Solarray.bytes32s(WBNB_CAKE_CakeV3_500, BUSD_USDT_UniV3_3000);
         factory.multicall({ data: Solarray.bytess(abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData))) });
 
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        USDT.safeApprove({ to: address(factory), amount: 100e18 });
 
         // tokenIn is not in sent pair
         vm.expectRevert(IMultiswapRouterComponent.MultiswapRouterComponent_InvalidTokenIn.selector);
@@ -139,18 +219,27 @@ contract MultiswapTest is BaseTest {
 
         mData.minAmountOut = quoterAmountOut * 0.98e18 / 1e18;
 
-        _resetPrank(user);
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
+        _resetPrank(user);
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.transferToken, (WBNB, 0, user))
             )
         });
 
-        assertEq(IERC20(WBNB).balanceOf({ account: user }), quoterAmountOut);
+        assertEq(WBNB.balanceOf({ account: user }), quoterAmountOut);
     }
 
     function test_multiswapRouterComponent_multiswap_shouldSwapThroughAllUniswapV3Pairs() external {
@@ -167,17 +256,26 @@ contract MultiswapTest is BaseTest {
         mData.minAmountOut = quoterAmountOut * 0.98e18 / 1e18;
 
         _resetPrank(user);
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.transferToken, (ETH, 0, user))
             )
         });
 
-        assertEq(IERC20(ETH).balanceOf({ account: user }), quoterAmountOut);
+        assertEq(ETH.balanceOf({ account: user }), quoterAmountOut);
     }
 
     function test_multiswapRouterComponent_failedV3Swap() external {
@@ -192,7 +290,7 @@ contract MultiswapTest is BaseTest {
         assertEq(quoter.multiswap({ data: mData }), 0);
 
         _resetPrank(user);
-        IERC20(USDC).approve({ spender: address(factory), amount: 100e18 });
+        USDC.safeApprove({ to: address(factory), amount: 100e18 });
 
         vm.expectRevert(IMultiswapRouterComponent.MultiswapRouterComponent_FailedV3Swap.selector);
         factory.multicall({
@@ -214,12 +312,21 @@ contract MultiswapTest is BaseTest {
          Solarray.bytes32s(0x0000000000000000000009c016b9a82891338f9bA80E2D6970FddA79D1eb0daE);
 
         _resetPrank(user);
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
         vm.expectRevert(IMultiswapRouterComponent.MultiswapRouterComponent_FailedV2Swap.selector);
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.transferToken, (WBNB, 0, user))
             )
@@ -246,12 +353,21 @@ contract MultiswapTest is BaseTest {
         mData.minAmountOut = quoterAmountOut + 1;
 
         _resetPrank(user);
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
         vm.expectRevert(IMultiswapRouterComponent.MultiswapRouterComponent_InvalidAmountOut.selector);
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.transferToken, (WBNB, 0, user))
             )
@@ -273,11 +389,20 @@ contract MultiswapTest is BaseTest {
         mData.minAmountOut = quoterAmountOut;
 
         _resetPrank(user);
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.transferToken, (WBNB, 0, user))
             )
@@ -304,7 +429,7 @@ contract MultiswapTest is BaseTest {
 
         _resetPrank(user);
 
-        uint256 userBalanceBefore = IERC20(USDT).balanceOf({ account: user });
+        uint256 userBalanceBefore = USDT.balanceOf({ account: user });
 
         factory.multicall{ value: 10e18 }({
             replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
@@ -314,7 +439,7 @@ contract MultiswapTest is BaseTest {
             )
         });
 
-        assertEq(IERC20(USDT).balanceOf({ account: user }) - userBalanceBefore, quoterAmountOut);
+        assertEq(USDT.balanceOf({ account: user }) - userBalanceBefore, quoterAmountOut);
     }
 
     function test_multiswapRouterComponent_multiswap_swapToNativeThroughV2V3Pairs() external {
@@ -329,14 +454,22 @@ contract MultiswapTest is BaseTest {
         mData.minAmountOut = quoterAmountOut * 0.98e18 / 1e18;
 
         _resetPrank(user);
-
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
         uint256 userBalanceBefore = user.balance;
 
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.unwrapNativeAndTransferTo, (user, 0))
             )
@@ -368,17 +501,26 @@ contract MultiswapTest is BaseTest {
         mData.minAmountOut = quoterAmountOut;
 
         _resetPrank(user);
-        IERC20(USDT).approve({ spender: address(factory), amount: 100e18 });
+        uint256 nonce = ITransferComponent(address(factory)).getNonceForPermit2({ user: user });
+        bytes memory signature = _permit2Sign(
+            userPk,
+            ISignatureTransfer.PermitTransferFrom({
+                permitted: ISignatureTransfer.TokenPermissions({ token: USDT, amount: 100e18 }),
+                nonce: nonce,
+                deadline: block.timestamp
+            })
+        );
 
         factory.multicall({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000240024,
             data: Solarray.bytess(
+                abi.encodeCall(TransferComponent.transferFromPermit2, (USDT, 100e18, nonce, block.timestamp, signature)),
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(TransferComponent.transferToken, (ETH, 0, user))
             )
         });
 
-        assertEq(IERC20(ETH).balanceOf({ account: user }), quoterAmountOut);
+        assertEq(ETH.balanceOf({ account: user }), quoterAmountOut);
         assertEq(feeContract.profit({ owner: address(feeContract), token: ETH }), quoterAmountOut * 300 / (1e6 - 300));
     }
 }

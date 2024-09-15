@@ -5,6 +5,7 @@ import { TransferComponent } from "../src/components/TransferComponent.sol";
 import { MultiswapRouterComponent } from "../src/components/MultiswapRouterComponent.sol";
 import { StargateComponent } from "../src/components/bridges/StargateComponent.sol";
 import { LayerZeroComponent } from "../src/components/bridges/LayerZeroComponent.sol";
+import { SymbiosisComponent } from "../src/components/bridges/SymbiosisComponent.sol";
 
 import { Factory } from "../src/Factory.sol";
 
@@ -13,6 +14,7 @@ struct Contracts {
     address multiswapRouterComponent;
     address stargateComponent;
     address layerZeroComponent;
+    address symbiosisComponent;
     //
     address quoter;
     address quoterProxy;
@@ -21,7 +23,9 @@ struct Contracts {
     address feeContractProxy;
     //
     address wrappedNative;
-    address endpointV2;
+    address layerZeroEndpointV2;
+    address symbiosisPortal;
+    address permit2;
 }
 
 function getContracts(uint256 chainId) pure returns (Contracts memory) {
@@ -32,6 +36,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             multiswapRouterComponent: address(0),
             stargateComponent: address(0),
             layerZeroComponent: address(0),
+            symbiosisComponent: address(0),
             //
             quoter: address(0),
             quoterProxy: address(0),
@@ -40,7 +45,9 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             feeContractProxy: address(0),
             //
             wrappedNative: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+            layerZeroEndpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
+            symbiosisPortal: 0xb8f275fBf7A959F4BCE59999A2EF122A099e81A8,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3
         });
     }
 
@@ -51,6 +58,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             multiswapRouterComponent: 0x65DfbA5338137e0De3c7e9C11D9BFEd0B02c33b8,
             stargateComponent: 0xdd4ec4bFecAb02CbE60CdBA8De49821a1105c24f,
             layerZeroComponent: 0xC2F6a6c1712899fCA57df645cfA0E9d04e0B5A38,
+            symbiosisComponent: address(0),
             //
             quoter: 0x2ef78f53965cB6b6BE3DF79e143D07790c3E84b3,
             quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
@@ -59,7 +67,9 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+            layerZeroEndpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
+            symbiosisPortal: 0x5Aa5f7f84eD0E5db0a4a85C3947eA16B53352FD4,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3
         });
     }
 
@@ -70,6 +80,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             multiswapRouterComponent: 0x995f1B46F71Bc83a90653286e85185D27956687e,
             stargateComponent: 0x40EC78B5A9170b66Aa12B17627A97429f596a185,
             layerZeroComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
+            symbiosisComponent: address(0),
             //
             quoter: 0x33E3337E3d68aB3b56C86613CCF34CB0d006Ab04,
             quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
@@ -78,7 +89,9 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+            layerZeroEndpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
+            symbiosisPortal: 0xb8f275fBf7A959F4BCE59999A2EF122A099e81A8,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3
         });
     }
 
@@ -89,6 +102,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             multiswapRouterComponent: 0x649BC4A713de188d4e68977ad61f9A5AD795D276,
             stargateComponent: 0x40EC78B5A9170b66Aa12B17627A97429f596a185,
             layerZeroComponent: 0xC0D032E84682c43e101E1e6578E0dEded5d224eD,
+            symbiosisComponent: address(0),
             //
             quoter: 0x33E3337E3d68aB3b56C86613CCF34CB0d006Ab04,
             quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
@@ -97,7 +111,9 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+            layerZeroEndpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
+            symbiosisPortal: 0xE75C7E85FE6ADd07077467064aD15847E6ba9877,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3
         });
     }
 
@@ -108,6 +124,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             multiswapRouterComponent: 0x995f1B46F71Bc83a90653286e85185D27956687e,
             stargateComponent: 0x6bF6c75738dC7114E162fB4df10ABADCF1b5bDb0,
             layerZeroComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
+            symbiosisComponent: address(0),
             //
             quoter: 0x033D438b5a95216740F14e80b6Ce045C0E65d610,
             quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
@@ -116,7 +133,9 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0x4200000000000000000000000000000000000006,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+            layerZeroEndpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
+            symbiosisPortal: 0x292fC50e4eB66C3f6514b9E402dBc25961824D62,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3
         });
     }
 
@@ -127,6 +146,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             multiswapRouterComponent: 0x995f1B46F71Bc83a90653286e85185D27956687e,
             stargateComponent: 0x6bF6c75738dC7114E162fB4df10ABADCF1b5bDb0,
             layerZeroComponent: 0x10255Eb3cd67406b07D6C82E69460848BCa83022,
+            symbiosisComponent: address(0),
             //
             quoter: 0x033D438b5a95216740F14e80b6Ce045C0E65d610,
             quoterProxy: 0x13e6aC30fC8E37792F18b1e3D75B8266B0A93734,
@@ -135,7 +155,9 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
             feeContractProxy: 0x20F282686b842851C8D7552d6fD095B55dBc775f,
             //
             wrappedNative: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1,
-            endpointV2: 0x1a44076050125825900e736c501f859c50fE728c
+            layerZeroEndpointV2: 0x1a44076050125825900e736c501f859c50fE728c,
+            symbiosisPortal: 0x01A3c8E513B758EBB011F7AFaf6C37616c9C24d9,
+            permit2: 0x000000000022D473030F116dDEE9F6B43aC78BA3
         });
     }
 
@@ -146,7 +168,7 @@ function getContracts(uint256 chainId) pure returns (Contracts memory) {
 library DeployEngine {
     function deployFactory(Contracts memory contracts) internal returns (address) {
         bytes4[] memory selectors = new bytes4[](250);
-        address[] memory componentAddresses = new address[](250);
+        address[] memory componentAddresses = new address[](25);
         uint256[] memory addressIndexes = new uint256[](250);
 
         uint256 i;
@@ -155,11 +177,13 @@ library DeployEngine {
 
         if (contracts.transferComponent != address(0)) {
             // transfer Component
+            selectors[i++] = TransferComponent.getNonceForPermit2.selector;
+            selectors[i++] = TransferComponent.transferFromPermit2.selector;
             selectors[i++] = TransferComponent.transferToken.selector;
             selectors[i++] = TransferComponent.transferNative.selector;
             selectors[i++] = TransferComponent.unwrapNative.selector;
             selectors[i++] = TransferComponent.unwrapNativeAndTransferTo.selector;
-            for (uint256 k; k < 4; ++k) {
+            for (uint256 k; k < 6; ++k) {
                 addressIndexes[j++] = addressIndex;
             }
             componentAddresses[addressIndex] = contracts.transferComponent;
@@ -214,7 +238,19 @@ library DeployEngine {
             for (uint256 k; k < 18; ++k) {
                 addressIndexes[j++] = addressIndex;
             }
+
             componentAddresses[addressIndex] = contracts.layerZeroComponent;
+
+            ++addressIndex;
+        }
+
+        if (contracts.symbiosisComponent != address(0)) {
+            selectors[i++] = SymbiosisComponent.portal.selector;
+            selectors[i++] = SymbiosisComponent.send.selector;
+            for (uint256 k; k < 2; ++k) {
+                addressIndexes[j++] = addressIndex;
+            }
+            componentAddresses[addressIndex] = contracts.symbiosisComponent;
             ++addressIndex;
         }
 
@@ -252,19 +288,26 @@ library DeployEngine {
         if (contracts.transferComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.transferComponent = address(new TransferComponent({ wrappedNative: contracts.wrappedNative }));
+            contracts.transferComponent =
+                address(new TransferComponent({ wrappedNative: contracts.wrappedNative, permit2: contracts.permit2 }));
         }
 
         if (contracts.stargateComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.stargateComponent = address(new StargateComponent({ endpointV2: contracts.endpointV2 }));
+            contracts.stargateComponent = address(new StargateComponent({ endpointV2: contracts.layerZeroEndpointV2 }));
         }
 
         if (contracts.layerZeroComponent == address(0) || isTest) {
             upgrade = true;
 
-            contracts.layerZeroComponent = address(new LayerZeroComponent({ endpointV2: contracts.endpointV2 }));
+            contracts.layerZeroComponent = address(new LayerZeroComponent({ endpointV2: contracts.layerZeroEndpointV2 }));
+        }
+
+        if (contracts.symbiosisComponent == address(0) || isTest) {
+            upgrade = true;
+
+            contracts.symbiosisComponent = address(new SymbiosisComponent({ portal_: contracts.symbiosisPortal }));
         }
 
         return (contracts, upgrade);
