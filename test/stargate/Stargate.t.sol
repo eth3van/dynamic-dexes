@@ -34,9 +34,9 @@ contract StargateComponentTest is BaseTest {
     // =========================
 
     function test_stargateComponent_constructor_shouldInitializeInConstructor() external {
-        StargateComponent _stargateComponent = new StargateComponent({ endpointV2: contracts.endpointV2 });
+        StargateComponent _stargateComponent = new StargateComponent({ endpointV2: contracts.layerZeroEndpointV2 });
 
-        assertEq(_stargateComponent.lzEndpoint(), contracts.endpointV2);
+        assertEq(_stargateComponent.lzEndpoint(), contracts.layerZeroEndpointV2);
     }
 
     // =========================

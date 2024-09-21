@@ -27,7 +27,7 @@ contract LayerZeroComponentTest is BaseTest {
     function test_layerZeroComponent_gettersAndSetters() external {
         _resetPrank(owner);
 
-        new LayerZeroComponent({ endpointV2: contracts.endpointV2 });
+        new LayerZeroComponent({ endpointV2: contracts.layerZeroEndpointV2 });
 
         assertEq(ILayerZeroComponent(address(factory)).eid(), 30_102);
 
