@@ -29,9 +29,7 @@ import {
     OFTComposeMsgCodec
 } from "../src/components/bridges/StargateComponent.sol";
 import { LayerZeroComponent, ILayerZeroComponent } from "../src/components/bridges/LayerZeroComponent.sol";
-import { SymbiosisComponent, ISymbiosis } from "../src/components/bridges/SymbiosisComponent.sol";
-
-import { SafeTransferLib } from "solady/utils/SafeTransferLib.sol";
+import { SymbiosisComponent, ISymbiosisComponent, ISymbiosis } from "../src/components/bridges/SymbiosisComponent.sol";
 
 import { console2 } from "forge-std/console2.sol";
 
@@ -54,7 +52,7 @@ contract BaseTest is Test {
 
         _permit2 = ISignatureTransfer(contracts.permit2);
 
-        (contracts,) = DeployEngine.deployImplemetations({ contracts: contracts, isTest: true });
+        (contracts,) = DeployEngine.deployImplementations({ contracts: contracts, isTest: true });
 
         quoter = Quoter(address(new Proxy({ initialOwner: owner })));
         InitialImplementation(address(quoter)).upgradeTo({

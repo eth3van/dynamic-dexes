@@ -24,7 +24,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     // 0xff <- addressIndex                                                  //
     // 0xaaaaaaaaff <- one element                                           //
     //                                                                       //
-    // componentAddressess are stored in the end of the bytes array              //
+    // componentAddresses are stored in the end of the bytes array              //
     //-----------------------------------------------------------------------//
 
     /// @dev Address where component and selector bytes are stored using SSTORE2.

@@ -50,7 +50,7 @@ contract Deploy is Script {
         }
 
         bool upgrade;
-        (contracts, upgrade) = DeployEngine.deployImplemetations({ contracts: contracts, isTest: false });
+        (contracts, upgrade) = DeployEngine.deployImplementations({ contracts: contracts, isTest: false });
         if (upgrade) {
             address factory = DeployEngine.deployFactory({ contracts: contracts });
 
@@ -130,7 +130,7 @@ contract Deploy is Script {
 
         address factory = contracts.prodFactory;
         if (contracts.prodFactory == address(0)) {
-            (contracts,) = DeployEngine.deployImplemetations({ contracts: contracts, isTest: false });
+            (contracts,) = DeployEngine.deployImplementations({ contracts: contracts, isTest: false });
             factory = DeployEngine.deployFactory({ contracts: contracts });
         }
 

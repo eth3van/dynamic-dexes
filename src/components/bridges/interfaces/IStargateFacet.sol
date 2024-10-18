@@ -17,14 +17,14 @@ interface IStargateComponent {
     /// @dev Thrown if native balance is not sufficient
     error StargateComponent_InvalidNativeBalance();
 
-    /// @dev Thrown if msg.sender is not the layerzero endpoint
+    /// @dev Thrown if msg.sender is not the layerZero endpoint
     error NotLZEndpoint();
 
     // =========================
     // getters
     // =========================
 
-    /// @notice Gets address of the layerzero endpoint
+    /// @notice Gets address of the layerZero endpoint
     function lzEndpoint() external view returns (address);
 
     // =========================
@@ -50,7 +50,7 @@ interface IStargateComponent {
 
     /// @notice Send message to Stargate V2
     function sendStargateV2(
-        address poolAddres,
+        address poolAddress,
         uint32 dstEid,
         uint256 amountLD,
         address receiver,
