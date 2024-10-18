@@ -22,7 +22,7 @@ contract StargateComponent is BaseOwnableComponent, ILayerZeroComposer, IStargat
     using OptionsBuilder for bytes;
     using TransferHelper for address;
 
-    /// @dev Address of the layerzero endpoint
+    /// @dev Address of the layerZero endpoint
     address private immutable _lzEndpointV2;
 
     // =========================
