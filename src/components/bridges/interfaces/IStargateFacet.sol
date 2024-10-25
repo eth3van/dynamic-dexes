@@ -18,7 +18,7 @@ interface IStargateComponent {
     error StargateComponent_InvalidNativeBalance();
 
     /// @dev Thrown if msg.sender is not the layerZero endpoint
-    error NotLZEndpoint();
+    error StargateComponent_NotLZEndpoint();
 
     // =========================
     // getters
@@ -58,6 +58,5 @@ interface IStargateComponent {
         bytes memory composeMsg
     )
         external
-        payable
         returns (uint256);
 }

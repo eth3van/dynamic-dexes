@@ -42,12 +42,16 @@ contract SymbiosisComponent is ISymbiosisComponent {
     /// @inheritdoc ISymbiosisComponent
     function sendSymbiosis(ISymbiosisComponent.SymbiosisTransaction calldata symbiosisTransaction) external {
         address sender = TransientStorageComponentLibrary.getSenderAddress();
-        if (symbiosisTransaction.rtoken.safeGetBalance({ account: address(this) }) < symbiosisTransaction.amount) {
-            symbiosisTransaction.rtoken.safeTransferFrom({
-                from: sender,
-                to: address(this),
-                value: symbiosisTransaction.amount
-            });
+        (address token, uint256 amount) = TransientStorageComponentLibrary.getTokenAndAmount();
+        if (token == address(0) && amount == 0) {
+            if (sender != address(this)) {
+                TransferHelper.safeTransferFrom({
+                    token: symbiosisTransaction.rtoken,
+                    from: sender,
+                    to: address(this),
+                    value: symbiosisTransaction.amount
+                });
+            }
         }
 
         symbiosisTransaction.rtoken.safeApprove({ spender: address(_portal), value: symbiosisTransaction.amount });
