@@ -7,11 +7,10 @@ import { Proxy, InitialImplementation } from "../src/proxy/Proxy.sol";
 import { Factory, IFactory } from "../src/Factory.sol";
 
 import { DeployEngine } from "../script/DeployEngine.sol";
-import { Solarray } from "solarray/Solarray.sol";
 
 import { Initializable } from "../src/proxy/Initializable.sol";
 
-import { BaseTest } from "./BaseTest.t.sol";
+import { BaseTest, Solarray } from "./BaseTest.t.sol";
 
 contract Component1 {
     struct ComponentStorage {
@@ -296,5 +295,52 @@ contract FactoryTest is BaseTest {
             )
         );
         InitialImplementation(address(factory)).upgradeTo({ implementation: address(0), data: bytes("") });
+    }
+
+    // =========================
+    // diamond getters
+    // =========================
+
+    function test_factory_components_diamondGetters() external view {
+        assertEq(factory.componentAddress({ functionSelector: Component1.setValue1.selector }), address(component1));
+        assertEq(factory.componentAddress({ functionSelector: Component2.setValue2.selector }), address(component2));
+
+        address[] memory _components = factory.componentAddresses();
+
+        assertEq(_components.length, 2);
+        assertEq(_components[0], address(component1));
+        assertEq(_components[1], address(component2));
+
+        bytes4[] memory componentFunctionSelectors = factory.componentFunctionSelectors({ component: _components[0] });
+        bytes4[] memory component1FunctionSelectorsExpected =
+            Solarray.bytes4s(Component1.setValue1.selector, Component1.getValue1.selector, Component1.revertMethod.selector);
+
+        for (uint256 i; i < componentFunctionSelectors.length; ++i) {
+            _assertEqual(componentFunctionSelectors[i], component1FunctionSelectorsExpected);
+        }
+
+        componentFunctionSelectors = factory.componentFunctionSelectors({ component: _components[1] });
+        bytes4[] memory component2FunctionSelectorsExpected = Solarray.bytes4s(
+            Component2.setValue2.selector, Component2.getValue2.selector, Component2.setValue3.selector, Component2.getValue3.selector
+        );
+
+        for (uint256 i; i < componentFunctionSelectors.length; ++i) {
+            _assertEqual(componentFunctionSelectors[i], component2FunctionSelectorsExpected);
+        }
+
+        IFactory.Component[] memory components = factory.components();
+
+        assertEq(components.length, 2);
+        assertEq(components[0].component, address(component1));
+        assertEq(components[0].functionSelectors.length, 3);
+        for (uint256 i; i < components[0].functionSelectors.length; ++i) {
+            _assertEqual(components[0].functionSelectors[i], component1FunctionSelectorsExpected);
+        }
+
+        assertEq(components[1].component, address(component2));
+        assertEq(components[1].functionSelectors.length, 4);
+        for (uint256 i; i < components[1].functionSelectors.length; ++i) {
+            _assertEqual(components[1].functionSelectors[i], component2FunctionSelectorsExpected);
+        }
     }
 }

@@ -32,4 +32,34 @@ interface IFactory {
     ///     the result of the call replaces the calldata for the next call at that offset.
     /// @param data An array of call data to be executed.
     function multicall(bytes32 replace, bytes[] calldata data) external payable;
+
+    // =========================
+    // diamond getters
+    // =========================
+
+    // These functions are expected to be called frequently by tools
+
+    struct Component {
+        address component;
+        bytes4[] functionSelectors;
+    }
+
+    /// @notice Gets all component addresses and their four byte function selectors.
+    /// @return _components Component
+    function components() external view returns (Component[] memory _components);
+
+    /// @notice Gets all the function selectors supported by a specific component.
+    /// @param component The component address.
+    /// @return _componentFunctionSelectors
+    function componentFunctionSelectors(address component) external view returns (bytes4[] memory _componentFunctionSelectors);
+
+    /// @notice Get all the component addresses used by a diamond.
+    /// @return _components
+    function componentAddresses() external view returns (address[] memory _components);
+
+    /// @notice Gets the component that supports the given selector.
+    /// @dev If component is not found return address(0).
+    /// @param functionSelector The function selector.
+    /// @return _component The component address.
+    function componentAddress(bytes4 functionSelector) external view returns (address _component);
 }
