@@ -99,18 +99,68 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     receive() external payable { }
 
     // =======================
+    // diamond getters
+    // =======================
+
+    /// @inheritdoc IFactory
+    function components() external view returns (IFactory.Component[] memory _components) {
+        bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
+        address[] memory _componentsRaw = _getAddresses(componentsAndSelectors);
+
+        _components = new IFactory.Component[](_componentsRaw.length);
+
+        for (uint256 i; i < _componentsRaw.length;) {
+            _components[i].component = _componentsRaw[i];
+            _components[i].functionSelectors = _getComponentFunctionSelectors(componentsAndSelectors, i);
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IFactory
+    function componentFunctionSelectors(address component) external view returns (bytes4[] memory _componentFunctionSelectors) {
+        bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
+        address[] memory _components = _getAddresses(componentsAndSelectors);
+
+        uint256 componentIndex = type(uint64).max;
+        for (uint256 i; i < _components.length;) {
+            if (_components[i] == component) {
+                componentIndex = i;
+                break;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+
+        _componentFunctionSelectors = _getComponentFunctionSelectors(componentsAndSelectors, componentIndex);
+    }
+
+    /// @inheritdoc IFactory
+    function componentAddresses() external view returns (address[] memory _components) {
+        _components = _getAddresses(SSTORE2.read(_componentsAndSelectorsAddress));
+    }
+
+    /// @inheritdoc IFactory
+    function componentAddress(bytes4 functionSelector) external view returns (address _component) {
+        _component = _getAddress(functionSelector);
+    }
+
+    // =======================
     // internal function
     // =======================
 
     function _multicall(bool isOverride, bytes32 replace, bytes[] calldata data) internal {
-        address[] memory components = _getAddresses(isOverride, data);
+        address[] memory _components = _getAddresses(isOverride, data);
 
         TransientStorageComponentLibrary.setSenderAddress({ senderAddress: msg.sender });
 
         assembly ("memory-safe") {
             for {
                 let length := data.length
-                let memoryOffset := add(components, 32)
+                let memoryOffset := add(_components, 32)
                 let ptr := mload(64)
 
                 let cDataStart := mul(isOverride, 32)
@@ -194,10 +244,10 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
     /// @dev Searches for the component addresses associated with a function `selectors`.
     /// @dev Uses binary search to find the component addresses in componentsAndSelectors bytes.
     /// @param datas The calldata to be searched.
-    /// @return components The addresses of the component contracts.
-    function _getAddresses(bool isOverride, bytes[] calldata datas) internal view returns (address[] memory components) {
+    /// @return _components The addresses of the component contracts.
+    function _getAddresses(bool isOverride, bytes[] calldata datas) internal view returns (address[] memory _components) {
         uint256 length = datas.length;
-        components = new address[](length);
+        _components = new address[](length);
 
         bytes memory componentsAndSelectors = SSTORE2.read(_componentsAndSelectorsAddress);
 
@@ -230,7 +280,7 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
                 offset := add(offset, 32)
             }
 
-            components[i] = BinarySearch.binarySearch({
+            _components[i] = BinarySearch.binarySearch({
                 selector: selector,
                 componentsAndSelectors: componentsAndSelectors,
                 length: selectorsLength,
@@ -246,6 +296,66 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
         assembly ("memory-safe") {
             // re-use unnecessary memory
             mstore(64, componentsAndSelectors)
+        }
+    }
+
+    /// @dev Returns the addresses of the components.
+    function _getAddresses(bytes memory componentsAndSelectors) internal pure returns (address[] memory _components) {
+        assembly ("memory-safe") {
+            let counter
+            for {
+                _components := mload(64)
+                let addressesOffset :=
+                    add(
+                        add(componentsAndSelectors, 36), // 32 for length + 4 for metadata
+                        and(shr(224, mload(add(32, componentsAndSelectors))), 0xffff)
+                    )
+                let offset := add(_components, 32)
+            } 1 {
+                offset := add(offset, 32)
+                addressesOffset := add(addressesOffset, 20)
+            } {
+                let value := shr(96, mload(addressesOffset))
+                if iszero(value) { break }
+                mstore(offset, value)
+                counter := add(counter, 1)
+            }
+
+            mstore(_components, counter)
+            mstore(64, add(mload(64), add(32, mul(counter, 32))))
+        }
+    }
+
+    /// @dev Returns the selectors of the component with the given index.
+    function _getComponentFunctionSelectors(
+        bytes memory componentsAndSelectors,
+        uint256 componentIndex
+    )
+        internal
+        pure
+        returns (bytes4[] memory _componentFunctionSelectors)
+    {
+        assembly ("memory-safe") {
+            let counter
+            for {
+                _componentFunctionSelectors := mload(64)
+                let offset := add(_componentFunctionSelectors, 32)
+                let selectorsOffset := add(componentsAndSelectors, 36) // 32 for length + 4 for metadata
+                let selectorsLength := shr(240, mload(add(32, componentsAndSelectors)))
+            } selectorsLength {
+                selectorsLength := sub(selectorsLength, 1)
+                selectorsOffset := add(selectorsOffset, 5)
+            } {
+                let selector := mload(selectorsOffset)
+                if eq(and(shr(216, selector), 0xff), componentIndex) {
+                    mstore(offset, and(selector, 0xffffffff00000000000000000000000000000000000000000000000000000000))
+                    counter := add(counter, 1)
+                    offset := add(offset, 32)
+                }
+            }
+
+            mstore(_componentFunctionSelectors, counter)
+            mstore(64, add(mload(64), add(32, mul(counter, 32))))
         }
     }
 
