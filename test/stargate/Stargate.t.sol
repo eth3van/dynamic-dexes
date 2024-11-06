@@ -9,6 +9,7 @@ import {
     ITransferComponent,
     StargateComponent,
     IStargateComponent,
+    TransferHelper,
     TransferHelper
 } from "../BaseTest.t.sol";
 
@@ -40,29 +41,6 @@ contract StargateComponentTest is BaseTest {
     }
 
     // =========================
-    // unwrapNative
-    // =========================
-
-    function test_transferComponent_unwrapNative_shouldUnwrapNativeToken() external {
-        deal({ token: WBNB, to: address(factory), give: 10e18 });
-
-        _resetPrank(user);
-
-        assertEq(IERC20(WBNB).balanceOf({ account: address(factory) }), 10e18);
-        assertEq(address(factory).balance, 0);
-
-        factory.multicall({ data: Solarray.bytess(abi.encodeCall(ITransferComponent.unwrapNative, (5e18))) });
-
-        assertEq(IERC20(WBNB).balanceOf({ account: address(factory) }), 5e18);
-        assertEq(address(factory).balance, 5e18);
-
-        factory.multicall({ data: Solarray.bytess(abi.encodeCall(ITransferComponent.unwrapNative, (5e18))) });
-
-        assertEq(IERC20(WBNB).balanceOf({ account: address(factory) }), 0);
-        assertEq(address(factory).balance, 10e18);
-    }
-
-    // =========================
     // sendStargateV2
     // =========================
 
@@ -86,10 +64,9 @@ contract StargateComponentTest is BaseTest {
         assertApproxEqAbs(amountOut, 1000e18, 1000e18 * 0.997e18 / 1e18);
 
         factory.multicall{ value: fee }({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000000024,
             data: Solarray.bytess(
                 abi.encodeCall(IStargateComponent.sendStargateV2, (stargatePool, dstEidV2, 1000e18, user, 0, bytes(""))),
-                abi.encodeCall(ITransferComponent.transferToken, (USDT, 0, user))
+                abi.encodeCall(ITransferComponent.transferToken, (user))
             )
         });
     }
@@ -173,14 +150,52 @@ contract StargateComponentTest is BaseTest {
         });
 
         factory.multicall{ value: fee }({
-            replace: 0x0000000000000000000000000000000000000000000000000000000000240044,
+            replace: 0x0000000000000000000000000000000000000000000000000000000000000044,
             data: Solarray.bytess(
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
                 abi.encodeCall(IStargateComponent.sendStargateV2, (stargatePool, dstEidV2, 0, user, 0, bytes(""))),
-                abi.encodeCall(ITransferComponent.transferToken, (USDT, 0, user))
+                abi.encodeCall(ITransferComponent.transferToken, (user))
             )
         });
 
         assertEq(IERC20(USDT).balanceOf({ account: address(factory) }), 0);
+    }
+
+    // =========================
+    // no transfer revert
+    // =========================
+
+    function test_stargateComponent_sendStargateV2_noTransferRevert() external {
+        IMultiswapRouterComponent.MultiswapCalldata memory mData;
+
+        mData.amountIn = 10e18;
+        mData.tokenIn = WBNB;
+        mData.pairs =
+            Solarray.bytes32s(WBNB_ETH_Bakery, BUSD_ETH_Biswap, BUSD_CAKE_Biswap, USDC_CAKE_Cake, USDT_USDC_Cake);
+
+        _resetPrank(user);
+
+        deal({ token: WBNB, to: address(factory), give: 1000e18 });
+
+        uint256 quoteMultiswap = quoter.multiswap({ data: mData });
+
+        (uint256 fee,) = IStargateComponent(address(factory)).quoteV2({
+            poolAddress: stargatePool,
+            dstEid: dstEidV2,
+            amountLD: quoteMultiswap,
+            composer: user,
+            composeMsg: bytes(""),
+            composeGasLimit: 0
+        });
+
+        vm.expectRevert(TransferHelper.TransferHelper_TransferFromError.selector);
+        factory.multicall{ value: fee }({
+            replace: 0x0000000000000000000000000000000000000000000000000000000000000044,
+            data: Solarray.bytess(
+                abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
+                abi.encodeCall(IStargateComponent.sendStargateV2, (stargatePool, dstEidV2, 0, user, 0, bytes(""))),
+                abi.encodeCall(ITransferComponent.transferToken, (user))
+            )
+        });
     }
 }

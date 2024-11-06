@@ -146,12 +146,17 @@ contract TransferComponent is ITransferComponent {
                 revert ITransferComponent.TransferComponent_TransferFromFailed();
             }
 
-            return balanceAfter - balanceBefore;
+            balanceAfter = balanceAfter - balanceBefore;
+
+            TransientStorageComponentLibrary.setTokenAndAmount({ token: token, amount: balanceAfter });
+
+            return balanceAfter;
         }
     }
 
     /// @inheritdoc ITransferComponent
-    function transferToken(address token, uint256 amount, address to) external returns (uint256) {
+    function transferToken(address to) external returns (uint256) {
+        (address token, uint256 amount) = TransientStorageComponentLibrary.getTokenAndAmount();
         if (amount > 0) {
             TransferHelper.safeTransfer({ token: token, to: to, value: amount });
         }
@@ -160,25 +165,8 @@ contract TransferComponent is ITransferComponent {
     }
 
     /// @inheritdoc ITransferComponent
-    function transferNative(address to, uint256 amount) external returns (uint256) {
-        if (amount > 0) {
-            TransferHelper.safeTransferNative({ to: to, value: amount });
-        }
-
-        return amount;
-    }
-
-    /// @inheritdoc ITransferComponent
-    function unwrapNative(uint256 amount) external returns (uint256) {
-        if (amount > 0) {
-            _wrappedNative.withdraw({ wad: amount });
-        }
-
-        return amount;
-    }
-
-    /// @inheritdoc ITransferComponent
-    function unwrapNativeAndTransferTo(address to, uint256 amount) external returns (uint256) {
+    function unwrapNativeAndTransferTo(address to) external returns (uint256) {
+        (, uint256 amount) = TransientStorageComponentLibrary.getTokenAndAmount();
         if (amount > 0) {
             _wrappedNative.withdraw({ wad: amount });
 

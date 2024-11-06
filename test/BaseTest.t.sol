@@ -31,6 +31,8 @@ import {
 import { LayerZeroComponent, ILayerZeroComponent } from "../src/components/bridges/LayerZeroComponent.sol";
 import { SymbiosisComponent, ISymbiosisComponent, ISymbiosis } from "../src/components/bridges/SymbiosisComponent.sol";
 
+import { TransientStorageComponentLibrary } from "../src/libraries/TransientStorageComponentLibrary.sol";
+
 import { console2 } from "forge-std/console2.sol";
 
 contract BaseTest is Test {

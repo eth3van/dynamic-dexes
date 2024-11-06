@@ -104,23 +104,19 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
     // =========================
 
     /// @inheritdoc IMultiswapRouterComponent
-    function multiswap(IMultiswapRouterComponent.MultiswapCalldata calldata data)
-        external
-        payable
-        returns (uint256 amount)
-    {
+    function multiswap(IMultiswapRouterComponent.MultiswapCalldata calldata data) external returns (uint256 amountOut) {
         bool isNative = _wrapNative(data.tokenIn, data.amountIn);
 
-        amount = _multiswap(isNative, data);
+        amountOut = _multiswap(isNative, data);
     }
 
     /// @inheritdoc IMultiswapRouterComponent
-    function partswap(IMultiswapRouterComponent.PartswapCalldata calldata data) external payable returns (uint256 amount) {
+    function partswap(IMultiswapRouterComponent.PartswapCalldata calldata data) external returns (uint256 amountOut) {
         address tokenIn = data.tokenIn;
         uint256 fullAmount = data.fullAmount;
         bool isNative = _wrapNative(tokenIn, fullAmount);
 
-        amount = _partswap(isNative, fullAmount, isNative ? address(_wrappedNative) : tokenIn, data);
+        amountOut = _partswap(isNative, fullAmount, isNative ? address(_wrappedNative) : tokenIn, data);
     }
 
     // for V3Callback
@@ -200,32 +196,53 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
                 uni3 := and(pair, UNISWAP_V3_MASK)
             }
 
+            bool transferToUni;
             if (isNative) {
                 tokenIn = address(_wrappedNative);
-
-                // execute transfer:
-                //     if the pair belongs to version 2 of the protocol -> transfer tokens to the pair
-                if (!uni3) {
-                    TransferHelper.safeTransfer({ token: tokenIn, to: firstPair, value: amountIn });
-                }
+                transferToUni = true;
             } else {
                 tokenIn = data.tokenIn;
 
-                if (TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) }) < amountIn) {
-                    // execute transferFrom:
-                    //     if the pair belongs to version 2 of the protocol -> transfer tokens to the pair
-                    //     if version 3 -> to this contract
-                    TransferHelper.safeTransferFrom({
-                        token: tokenIn,
-                        from: TransientStorageComponentLibrary.getSenderAddress(),
-                        to: uni3 ? address(this) : firstPair,
-                        value: amountIn
-                    });
-                } else if (!uni3) {
-                    // execute transfer:
-                    //     if the pair belongs to version 2 of the protocol -> transfer tokens to the pair
-                    TransferHelper.safeTransfer({ token: tokenIn, to: firstPair, value: amountIn });
+                address sender = TransientStorageComponentLibrary.getSenderAddress();
+
+                (address token, uint256 amount) = TransientStorageComponentLibrary.getTokenAndAmount();
+                if (token == address(0) && amount == 0) {
+                    if (sender != address(this)) {
+                        uint256 balanceInBeforeTransfer =
+                            TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
+
+                        // execute transferFrom:
+                        //     if the pair belongs to version 2 of the protocol -> transfer tokens to the pair
+                        //     if version 3 -> to this contract
+                        TransferHelper.safeTransferFrom({
+                            token: tokenIn,
+                            from: sender,
+                            to: uni3 ? address(this) : firstPair,
+                            value: amountIn
+                        });
+
+                        if (uni3) {
+                            uint256 balanceInAfterTransfer =
+                                TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
+
+                            _checkOutputAmount(balanceInAfterTransfer, balanceInBeforeTransfer);
+
+                            unchecked {
+                                amountIn = balanceInAfterTransfer - balanceInBeforeTransfer;
+                            }
+                        }
+                    } else {
+                        transferToUni = true;
+                    }
+                } else {
+                    transferToUni = true;
                 }
+            }
+
+            if (!uni3 && transferToUni) {
+                // execute transfer:
+                //     if the pair belongs to version 2 of the protocol -> transfer tokens to the pair
+                TransferHelper.safeTransfer({ token: tokenIn, to: firstPair, value: amountIn });
             }
         }
 
@@ -281,6 +298,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
             }
         }
 
+        TransientStorageComponentLibrary.setTokenAndAmount({ token: tokenIn, amount: amountIn });
         return amountIn;
     }
 
@@ -319,25 +337,28 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
             }
 
             if (!isNative) {
-                uint256 balanceInBeforeTransfer =
-                    TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
+                (address token, uint256 amount) = TransientStorageComponentLibrary.getTokenAndAmount();
+                if (token == address(0) && amount == 0) {
+                    if (sender != address(this)) {
+                        uint256 balanceInBeforeTransfer =
+                            TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
 
-                if (balanceInBeforeTransfer < fullAmount) {
-                    // Transfer full amountIn for all swaps
-                    TransferHelper.safeTransferFrom({
-                        token: tokenIn,
-                        from: sender,
-                        to: address(this),
-                        value: fullAmount
-                    });
+                        // Transfer full amountIn for all swaps
+                        TransferHelper.safeTransferFrom({
+                            token: tokenIn,
+                            from: sender,
+                            to: address(this),
+                            value: fullAmount
+                        });
 
-                    uint256 amountInAfterTransfer =
-                        TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
+                        uint256 balanceInAfterTransfer =
+                            TransferHelper.safeGetBalance({ token: tokenIn, account: address(this) });
 
-                    _checkOutputAmount(amountInAfterTransfer, balanceInBeforeTransfer);
+                        _checkOutputAmount(balanceInAfterTransfer, balanceInBeforeTransfer);
 
-                    unchecked {
-                        fullAmount = amountInAfterTransfer - balanceInBeforeTransfer;
+                        unchecked {
+                            fullAmount = balanceInAfterTransfer - balanceInBeforeTransfer;
+                        }
                     }
                 }
             }
@@ -413,6 +434,7 @@ contract MultiswapRouterComponent is BaseOwnableComponent, IMultiswapRouterCompo
             }
         }
 
+        TransientStorageComponentLibrary.setTokenAndAmount({ token: tokenOut, amount: exactAmountOut });
         return exactAmountOut;
     }
 

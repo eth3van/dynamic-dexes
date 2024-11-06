@@ -43,7 +43,7 @@ contract ReceiveStargateComponentTest is BaseTest {
             0x0000000000000000000000000000000000000000000000000000000000000024,
             Solarray.bytess(
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
-                abi.encodeCall(ITransferComponent.transferToken, (USDC, 0, user))
+                abi.encodeCall(ITransferComponent.transferToken, (user))
             )
         );
 
@@ -52,7 +52,7 @@ contract ReceiveStargateComponentTest is BaseTest {
 
         _resetPrank(user);
 
-        vm.expectRevert(IStargateComponent.NotLZEndpoint.selector);
+        vm.expectRevert(IStargateComponent.StargateComponent_NotLZEndpoint.selector);
         ILayerZeroComposer(address(factory)).lzCompose({
             _from: user,
             _guid: bytes32(uint256(1)),
@@ -72,7 +72,7 @@ contract ReceiveStargateComponentTest is BaseTest {
 
         mData.amountIn = 0;
         mData.tokenIn = USDT;
-        mData.pairs = Solarray.bytes32s(USDT_USDC_UniV3_100);
+        mData.pairs = Solarray.bytes32s(USDT_CAKE_Cake);
 
         deal(USDT, address(factory), 995.1e18);
 
@@ -81,7 +81,7 @@ contract ReceiveStargateComponentTest is BaseTest {
             0x0000000000000000000000000000000000000000000000000000000000000024,
             Solarray.bytess(
                 abi.encodeCall(IMultiswapRouterComponent.multiswap, (mData)),
-                abi.encodeCall(ITransferComponent.transferToken, (USDC, 0, user))
+                abi.encodeCall(ITransferComponent.transferToken, (user))
             )
         );
 
@@ -111,13 +111,13 @@ contract ReceiveStargateComponentTest is BaseTest {
             "multicall(bytes32,bytes[])",
             0x0000000000000000000000000000000000000000000000000000000000000024,
             Solarray.bytess(
-                abi.encodeCall(ITransferComponent.transferToken, (USDT, 0, user)),
-                abi.encodeCall(ITransferComponent.transferToken, (USDT, 0, user))
+                abi.encodeCall(ITransferComponent.transferToken, (user)),
+                abi.encodeCall(ITransferComponent.transferToken, (user))
             )
         );
 
         bytes memory composeMsg =
-            abi.encode(USDT, user, 0x00000000000000000000000000000000000000000000000000000000000000e8, multicallData);
+            abi.encode(USDT, user, 0x0000000000000000000000000000000000000000000000000000000000000000, multicallData);
 
         _resetPrank(contracts.layerZeroEndpointV2);
 
@@ -144,7 +144,7 @@ contract ReceiveStargateComponentTest is BaseTest {
         bytes memory multicallData = abi.encodeWithSignature(
             "multicall(bytes32,bytes[])",
             0x0000000000000000000000000000000000000000000000000000000000000024,
-            Solarray.bytess(abi.encodeCall(ITransferComponent.transferToken, (USDC, 21, user)))
+            Solarray.bytess(abi.encodeCall(ITransferComponent.unwrapNativeAndTransferTo, (user)))
         );
 
         bytes memory composeMsg = abi.encode(
@@ -154,7 +154,7 @@ contract ReceiveStargateComponentTest is BaseTest {
         _resetPrank(contracts.layerZeroEndpointV2);
 
         vm.expectEmit();
-        emit CallFailed({ errorMessage: abi.encodeWithSelector(TransferHelper.TransferHelper_TransferError.selector) });
+        emit CallFailed({ errorMessage: new bytes(0) });
         ILayerZeroComposer(address(factory)).lzCompose({
             _from: user,
             _guid: bytes32(uint256(1)),
