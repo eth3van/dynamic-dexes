@@ -296,7 +296,7 @@ library DeployEngine {
             selectors[i++] = MultiswapRouterComponent.feeContract.selector;
             selectors[i++] = MultiswapRouterComponent.setFeeContract.selector;
             selectors[i++] = MultiswapRouterComponent.multiswap.selector;
-            selectors[i++] = MultiswapRouterComponent.partswap.selector;
+            selectors[i++] = MultiswapRouterComponent.multiswap2.selector;
             for (uint256 k; k < i - iCache; ++k) {
                 addressIndexes[j++] = addressIndex;
             }
