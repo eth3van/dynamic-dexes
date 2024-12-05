@@ -44,14 +44,12 @@ contract SymbiosisComponent is ISymbiosisComponent {
         address sender = TransientStorageComponentLibrary.getSenderAddress();
         (address token, uint256 amount) = TransientStorageComponentLibrary.getTokenAndAmount();
         if (token == address(0) && amount == 0) {
-            if (sender != address(this)) {
-                TransferHelper.safeTransferFrom({
-                    token: symbiosisTransaction.rtoken,
-                    from: sender,
-                    to: address(this),
-                    value: symbiosisTransaction.amount
-                });
-            }
+            TransferHelper.safeTransferFrom({
+                token: symbiosisTransaction.rtoken,
+                from: sender,
+                to: address(this),
+                value: symbiosisTransaction.amount
+            });
         }
 
         symbiosisTransaction.rtoken.safeApprove({ spender: address(_portal), value: symbiosisTransaction.amount });

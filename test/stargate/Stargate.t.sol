@@ -34,7 +34,7 @@ contract StargateComponentTest is BaseTest {
     // constructor
     // =========================
 
-    function test_stargateComponent_constructor_shouldInitializeInConstructor() external {
+    function test_stargateComponent_constructor_shouldInitializeInConstructor() external checkTokenStorage {
         StargateComponent _stargateComponent = new StargateComponent({ endpointV2: contracts.layerZeroEndpointV2 });
 
         assertEq(_stargateComponent.lzEndpoint(), contracts.layerZeroEndpointV2);
@@ -47,7 +47,7 @@ contract StargateComponentTest is BaseTest {
     uint32 dstEidV2 = 30_101;
     address stargatePool = 0x138EB30f73BC423c6455C53df6D89CB01d9eBc63;
 
-    function test_stargateComponent_sendStargateV2_shouldSendStargateV2() external {
+    function test_stargateComponent_sendStargateV2_shouldSendStargateV2() external checkTokenStorage {
         _resetPrank(user);
 
         IERC20(USDT).approve({ spender: address(factory), amount: 1000e18 });
@@ -71,7 +71,7 @@ contract StargateComponentTest is BaseTest {
         });
     }
 
-    function test_stargateComponent_sendStargateV2_shouldRevertIfNativeBalanceNotEnough() external {
+    function test_stargateComponent_sendStargateV2_shouldRevertIfNativeBalanceNotEnough() external checkTokenStorage {
         _resetPrank(user);
 
         IERC20(USDT).approve({ spender: address(factory), amount: 1000e18 });
@@ -93,7 +93,7 @@ contract StargateComponentTest is BaseTest {
         });
     }
 
-    function test_stargateComponent_sendStargateV2_shouldRevertIfTransferFromError() external {
+    function test_stargateComponent_sendStargateV2_shouldRevertIfTransferFromError() external checkTokenStorage {
         _resetPrank(user);
 
         (uint256 fee,) = IStargateComponent(address(factory)).quoteV2({
@@ -126,7 +126,7 @@ contract StargateComponentTest is BaseTest {
     // sendStargate with multiswap
     // =========================
 
-    function test_stargateComponent_sendStargateWithMultiswap_shouldSendStargateV2WithMultiswap() external {
+    function test_stargateComponent_sendStargateWithMultiswap_shouldSendStargateV2WithMultiswap() external checkTokenStorage {
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 10e18;
@@ -165,7 +165,7 @@ contract StargateComponentTest is BaseTest {
     // no transfer revert
     // =========================
 
-    function test_stargateComponent_sendStargateV2_noTransferRevert() external {
+    function test_stargateComponent_sendStargateV2_noTransferRevert() external checkTokenStorage {
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 10e18;

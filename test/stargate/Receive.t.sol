@@ -31,7 +31,7 @@ contract ReceiveStargateComponentTest is BaseTest {
     // lzCompose
     // =========================
 
-    function test_stargateComponent_lzCompose_shouldRevertIfSenderIsNotLzEndpoint() external {
+    function test_stargateComponent_lzCompose_shouldRevertIfSenderIsNotLzEndpoint() external  checkTokenStorage{
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 0;
@@ -67,7 +67,7 @@ contract ReceiveStargateComponentTest is BaseTest {
         });
     }
 
-    function test_stargateComponent_lzCompose_shouldLzCompose() external {
+    function test_stargateComponent_lzCompose_shouldLzCompose() external  checkTokenStorage{
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 0;
@@ -106,12 +106,29 @@ contract ReceiveStargateComponentTest is BaseTest {
 
     event CallFailed(bytes errorMessage);
 
-    function test_stargateComponent_lzCompose_shouldSendTokensToReceiverIfCallFailed() external {
+    function test_stargateComponent_lzCompose_shouldSendTokensToReceiverIfCallFailed() external checkTokenStorage {
+        IMultiswapRouterComponent.Multiswap2Calldata memory m2Data;
+
+        m2Data.fullAmount = 10e18;
+        m2Data.amountInPercentages = Solarray.uint256s(0.1e18, 0.2e18, 0.3e18, 0.4e18);
+        m2Data.tokenIn = USDT;
+        m2Data.pairs = Solarray.bytes32Arrays(
+            Solarray.bytes32s(USDT_USDC_Biswap),
+            Solarray.bytes32s(USDT_USDC_Bakery),
+            Solarray.bytes32s(USDT_USDC_Cake),
+            Solarray.bytes32s(USDT_USDC_UniV3_100)
+        );
+        m2Data.tokenOut = USDC;
+
+        uint256 quoterAmountOut = quoter.multiswap2({ data: m2Data });
+
+        m2Data.minAmountOut = quoterAmountOut + 1;
+
         bytes memory multicallData = abi.encodeWithSignature(
             "multicall(bytes32,bytes[])",
-            0x0000000000000000000000000000000000000000000000000000000000000024,
+            0x0000000000000000000000000000000000000000000000000000000000000000,
             Solarray.bytess(
-                abi.encodeCall(ITransferComponent.transferToken, (user)),
+                abi.encodeCall(IMultiswapRouterComponent.multiswap2, (m2Data)),
                 abi.encodeCall(ITransferComponent.transferToken, (user))
             )
         );
@@ -123,7 +140,9 @@ contract ReceiveStargateComponentTest is BaseTest {
 
         _expectERC20TransferCall(USDT, user, 995.1e18);
         vm.expectEmit();
-        emit CallFailed({ errorMessage: abi.encodeWithSelector(TransferHelper.TransferHelper_TransferError.selector) });
+        emit CallFailed({
+            errorMessage: abi.encodeWithSelector(IMultiswapRouterComponent.MultiswapRouterComponent_InvalidAmountOut.selector)
+        });
         ILayerZeroComposer(address(factory)).lzCompose({
             _from: user,
             _guid: bytes32(uint256(1)),
@@ -138,7 +157,10 @@ contract ReceiveStargateComponentTest is BaseTest {
         });
     }
 
-    function test_stargateComponent_lzCompose_shouldSendTokensToReceiverIfCallFailedWithNative() external {
+    function test_stargateComponent_lzCompose_shouldSendTokensToReceiverIfCallFailedWithNative()
+        external
+        checkTokenStorage
+    {
         deal({ to: address(factory), give: 0.001e18 });
 
         bytes memory multicallData = abi.encodeWithSignature(
