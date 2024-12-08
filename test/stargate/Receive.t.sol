@@ -31,7 +31,7 @@ contract ReceiveStargateComponentTest is BaseTest {
     // lzCompose
     // =========================
 
-    function test_stargateComponent_lzCompose_shouldRevertIfSenderIsNotLzEndpoint() external  checkTokenStorage{
+    function test_stargateComponent_lzCompose_shouldRevertIfSenderIsNotLzEndpoint() external checkTokenStorage {
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 0;
@@ -67,7 +67,7 @@ contract ReceiveStargateComponentTest is BaseTest {
         });
     }
 
-    function test_stargateComponent_lzCompose_shouldLzCompose() external  checkTokenStorage{
+    function test_stargateComponent_lzCompose_shouldLzCompose() external checkTokenStorage {
         IMultiswapRouterComponent.MultiswapCalldata memory mData;
 
         mData.amountIn = 0;
@@ -107,6 +107,9 @@ contract ReceiveStargateComponentTest is BaseTest {
     event CallFailed(bytes errorMessage);
 
     function test_stargateComponent_lzCompose_shouldSendTokensToReceiverIfCallFailed() external checkTokenStorage {
+        _resetPrank(owner);
+        feeContract.setProtocolFee({ newProtocolFee: 300 });
+
         IMultiswapRouterComponent.Multiswap2Calldata memory m2Data;
 
         m2Data.fullAmount = 10e18;
@@ -138,7 +141,8 @@ contract ReceiveStargateComponentTest is BaseTest {
 
         _resetPrank(contracts.layerZeroEndpointV2);
 
-        _expectERC20TransferCall(USDT, user, 995.1e18);
+        _expectERC20TransferCall(USDT, user, 995.1e18 * (1_000_000 - 300) / 1_000_000);
+        _expectERC20TransferCall(USDT, address(feeContract), 995.1e18 * 300 / 1_000_000);
         vm.expectEmit();
         emit CallFailed({
             errorMessage: abi.encodeWithSelector(IMultiswapRouterComponent.MultiswapRouterComponent_InvalidAmountOut.selector)
@@ -157,10 +161,15 @@ contract ReceiveStargateComponentTest is BaseTest {
         });
     }
 
+    event TransferNative(address to) anonymous;
+
     function test_stargateComponent_lzCompose_shouldSendTokensToReceiverIfCallFailedWithNative()
         external
         checkTokenStorage
     {
+        _resetPrank(owner);
+        feeContract.setProtocolFee({ newProtocolFee: 300 });
+
         deal({ to: address(factory), give: 0.001e18 });
 
         bytes memory multicallData = abi.encodeWithSignature(
@@ -175,8 +184,12 @@ contract ReceiveStargateComponentTest is BaseTest {
 
         _resetPrank(contracts.layerZeroEndpointV2);
 
+        vm.expectEmitAnonymous();
+        emit TransferNative({ to: address(feeContract) });
         vm.expectEmit();
         emit CallFailed({ errorMessage: new bytes(0) });
+        vm.expectEmitAnonymous();
+        emit TransferNative({ to: user });
         ILayerZeroComposer(address(factory)).lzCompose({
             _from: user,
             _guid: bytes32(uint256(1)),

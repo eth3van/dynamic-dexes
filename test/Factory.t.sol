@@ -10,7 +10,7 @@ import { DeployEngine } from "../script/DeployEngine.sol";
 
 import { Initializable } from "../src/proxy/Initializable.sol";
 
-import { BaseTest, Solarray } from "./BaseTest.t.sol";
+import { BaseTest, Solarray, FeeContract } from "./BaseTest.t.sol";
 
 contract Component1 {
     struct ComponentStorage {
@@ -106,6 +106,8 @@ contract FactoryTest is BaseTest {
 
         factory = Factory(payable(address(new Proxy({ initialOwner: owner }))));
 
+        feeContract = FeeContract(payable(makeAddr("feeContract")));
+
         InitialImplementation(address(factory)).upgradeTo({
             implementation: factoryImplementation,
             data: abi.encodeCall(Factory.initialize, (owner, new bytes[](0)))
@@ -118,7 +120,7 @@ contract FactoryTest is BaseTest {
 
     event Initialized(uint8 version);
 
-    function test_enrtryPoint_constructor_shouldDisavbleInitializers() external {
+    function test_factory_constructor_shouldDisavbleInitializers() external {
         _resetPrank(owner);
 
         vm.expectEmit();
@@ -206,6 +208,16 @@ contract FactoryTest is BaseTest {
             replace: bytes32(0),
             data: Solarray.bytess(abi.encodeCall(Component1.setValue1, (1)), abi.encodeCall(Component2.setValue2, (2)))
         });
+    }
+
+    // =========================
+    // setFeeContractAddress
+    // =========================
+
+    function test_factory_setFeeContractAddress_shouldSetFeeContractAddress() external {
+        assertEq(factory.getFeeContractAddress(), address(0));
+        factory.setFeeContractAddress({ feeContractAddress: address(feeContract) });
+        assertEq(factory.getFeeContractAddress(), address(feeContract));
     }
 
     // =========================

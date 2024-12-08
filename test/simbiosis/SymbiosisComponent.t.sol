@@ -45,6 +45,9 @@ contract SymbiosisComponentTest is BaseTest {
     // =========================
 
     function test_symbiosisComponent_sendSymbiosis_shouldTransferFromFromMsgSender() external {
+        _resetPrank(owner);
+        feeContract.setProtocolFee({ newProtocolFee: 300 });
+
         _resetPrank(user);
 
         IERC20(USDC).approve({ spender: address(factory), amount: 1000e18 });
@@ -94,7 +97,8 @@ contract SymbiosisComponentTest is BaseTest {
         );
 
         _expectERC20TransferFromCall(USDC, user, address(factory), 1000e18);
-        _expectERC20ApproveCall(USDC, contracts.symbiosisPortal, 1000e18);
+        _expectERC20TransferCall(USDC, address(feeContract), 1000e18 * 300 / 1_000_000);
+        _expectERC20ApproveCall(USDC, contracts.symbiosisPortal, 1000e18 * (1_000_000 - 300) / 1_000_000);
         factory.multicall({
             data: Solarray.bytess(
                 abi.encodeCall(
@@ -120,6 +124,9 @@ contract SymbiosisComponentTest is BaseTest {
     }
 
     function test_symbiosisComponent_sendSymbiosis_shouldTransferFromViaPermit2() external {
+        _resetPrank(owner);
+        feeContract.setProtocolFee({ newProtocolFee: 300 });
+
         _resetPrank(user);
 
         IERC20(USDC).approve({ spender: contracts.permit2, amount: type(uint256).max });
@@ -180,7 +187,8 @@ contract SymbiosisComponentTest is BaseTest {
         );
 
         _expectERC20TransferFromCall(USDC, user, address(factory), 1000e18);
-        _expectERC20ApproveCall(USDC, contracts.symbiosisPortal, 1000e18);
+        _expectERC20TransferCall(USDC, address(feeContract), 1000e18 * 300 / 1_000_000);
+        _expectERC20ApproveCall(USDC, contracts.symbiosisPortal, 1000e18 * (1_000_000 - 300) / 1_000_000);
         factory.multicall({
             replace: 0x0000000000000000000000000000000000000000000000000000000000000044,
             data: Solarray.bytess(

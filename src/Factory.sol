@@ -11,6 +11,7 @@ import { IFactory } from "./interfaces/IFactory.sol";
 import { Ownable2Step } from "./external/Ownable2Step.sol";
 
 import { TransientStorageComponentLibrary } from "./libraries/TransientStorageComponentLibrary.sol";
+import { FeeLibrary } from "./libraries/FeeLibrary.sol";
 
 /// @title Factory
 /// @notice This contract serves as a proxy for dynamic function execution.
@@ -55,6 +56,20 @@ contract Factory is Ownable2Step, UUPSUpgradeable, Initializable, IFactory {
         if (initialCalls.length > 0) {
             _multicall(true, bytes32(0), initialCalls);
         }
+    }
+
+    // =========================
+    // admin methods
+    // =========================
+
+    /// @inheritdoc IFactory
+    function setFeeContractAddress(address feeContractAddress) external onlyOwner {
+        FeeLibrary.setFeeContractAddress(feeContractAddress);
+    }
+
+    /// @inheritdoc IFactory
+    function getFeeContractAddress() external view returns (address feeContractAddress) {
+        feeContractAddress = FeeLibrary.getFeeContractAddress();
     }
 
     // =========================
