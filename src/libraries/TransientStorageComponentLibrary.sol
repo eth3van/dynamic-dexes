@@ -14,6 +14,8 @@ library TransientStorageComponentLibrary {
     // keccak256("token.component.storage")
     bytes32 internal constant TOKEN_COMPONENT_STORAGE = 0xc0abc52de3d4e570867f700eb5dfe2c039750b7f48720ee0d6152f3aa8676374;
 
+    uint256 internal constant FEE_PAID_FLAG = 0x010000000000000000000000000000000000000000;
+
     error TransientStorageComponentLibrary_InvalidSenderAddress();
 
     /// @notice get callback address
@@ -41,6 +43,17 @@ library TransientStorageComponentLibrary {
 
         if (senderAddress == address(0)) {
             revert TransientStorageComponentLibrary_InvalidSenderAddress();
+        }
+    }
+
+    /// @notice get fee paid flag and set flag if fee not paid
+    function isFeePaid() internal returns (bool _isFeePaid) {
+        assembly ("memory-safe") {
+            let value := sload(SENDER_COMPONENT_STORAGE)
+
+            _isFeePaid := shr(160, value)
+
+            if and(gt(value, 0), iszero(_isFeePaid)) { sstore(SENDER_COMPONENT_STORAGE, add(value, FEE_PAID_FLAG)) }
         }
     }
 
