@@ -33,7 +33,6 @@ import { SymbiosisComponent, ISymbiosisComponent, ISymbiosis } from "../src/comp
 
 import { TransientStorageComponentLibrary } from "../src/libraries/TransientStorageComponentLibrary.sol";
 
-
 contract BaseTest is Test {
     address owner;
     uint256 ownerPk;
