@@ -33,7 +33,6 @@ import { SymbiosisComponent, ISymbiosisComponent, ISymbiosis } from "../src/comp
 
 import { TransientStorageComponentLibrary } from "../src/libraries/TransientStorageComponentLibrary.sol";
 
-import { console2 } from "forge-std/console2.sol";
 
 contract BaseTest is Test {
     address owner;
