@@ -16,7 +16,7 @@ import "../Helpers.t.sol";
 
 contract StargateComponentTest is BaseTest {
     function setUp() external {
-        vm.createSelectFork(vm.rpcUrl("ethereum"));
+        vm.createSelectFork(vm.rpcUrl("ethereum_public"));
 
         _createUsers();
 

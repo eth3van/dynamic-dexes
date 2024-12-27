@@ -17,7 +17,7 @@ import "../Helpers.t.sol";
 
 contract StargateComponentTest is BaseTest {
     function setUp() external {
-        vm.createSelectFork(vm.rpcUrl("bsc"));
+        vm.createSelectFork(vm.rpcUrl("bsc_public"));
 
         _createUsers();
 

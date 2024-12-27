@@ -8,7 +8,7 @@ import "../Helpers.t.sol";
 
 contract LayerZeroComponentTest is BaseTest {
     function setUp() external {
-        vm.createSelectFork(vm.rpcUrl("bsc"));
+        vm.createSelectFork(vm.rpcUrl("bsc_public"));
 
         _createUsers();
 
